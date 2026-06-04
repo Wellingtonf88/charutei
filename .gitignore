@@ -1,0 +1,27 @@
+# Segredos — NUNCA comitar
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# uv
+uv.lock
+
+# Node / Expo
+node_modules/
+.expo/
+dist/
+*.log
+
+# Sistema
+.DS_Store

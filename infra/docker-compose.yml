@@ -1,0 +1,39 @@
+# Ambiente local do CHARUTEI (dev). Sobe o plano de dados da fundação.
+# pgvector vem embutido na imagem oficial. Apache AGE fica FORA do MVP por decisão de
+# arquitetura: o Knowledge Graph é relacional (kg_nodes/kg_edges) atrás de interface,
+# trocável por AGE/Neo4j na escala sem reescrita.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: charutei-postgres
+    environment:
+      POSTGRES_USER: charutei
+      POSTGRES_PASSWORD: charutei
+      POSTGRES_DB: charutei
+    ports:
+      - "5432:5432"
+    volumes:
+      - charutei_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U charutei -d charutei"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: charutei-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - charutei_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  charutei_pgdata:
+  charutei_redisdata:
