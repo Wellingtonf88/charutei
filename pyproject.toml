@@ -30,6 +30,7 @@ dev = [
 # orchestrator; S6: api). Mantemos só o que já existe para o sync ficar verde.
 members = [
     "packages/contracts",
+    "packages/knowledge",
 ]
 
 [tool.uv.sources]
@@ -52,6 +53,8 @@ pythonpath = ["."]
 python_version = "3.12"
 strict = true
 ignore_missing_imports = true
+# Migrações Alembic são boilerplate gerado e rodam fora do CI de tipos.
+exclude = ["migrations/"]
 
 [build-system]
 requires = ["hatchling"]

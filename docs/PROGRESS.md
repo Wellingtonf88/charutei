@@ -7,8 +7,8 @@ Registro de avanço por slice vertical (S0–S7). Princípio reitor: **"LLM é o
 
 | Slice | Descrição | Status |
 |---|---|---|
-| S0 | Fundação (scaffold, docker-compose, CI, CLAUDE.md) | 🚧 |
-| S1 | Conhecimento (OLTP + KG relacional + interfaces) | ⬜ |
+| S0 | Fundação (scaffold, docker-compose, CI, CLAUDE.md) | ✅ |
+| S1 | Conhecimento (OLTP + KG relacional + interfaces) | ✅ |
 | S2 | Cascata (Router + Registry + Governance + cache + Langfuse) | ⬜ |
 | S3 | Band Recognition Agent | ⬜ |
 | S4 | Eventos (outbox + worker + DLQ) | ⬜ |
@@ -18,7 +18,26 @@ Registro de avanço por slice vertical (S0–S7). Princípio reitor: **"LLM é o
 
 ---
 
-## S0 — Fundação (🚧)
+## S1 — Conhecimento (✅)
+**Entregue:**
+- `packages/knowledge`: interfaces (Protocols) `KnowledgeGraphRepo`, `VectorRepository`, `OltpRepository`.
+- Modelos de domínio (`KGNode`/`KGEdge`, `NodeType`/`EdgeRel`, `User`/`Band`/`Collection`/`CollectionItem`).
+- Impl **in-memory** (testada) e impl **Postgres** (SQL puro + pgvector via `::vector`) — mesmas interfaces.
+- KG **relacional**: `kg_nodes`/`kg_edges`/`kg_version` + `embeddings`; `schema.sql` (fonte) + **Alembic** `0001_initial`.
+- Seed curado de **32 charutos reais** (`evals/datasets/cigars_seed.json`) + loader idempotente `seed_knowledge_graph`.
+
+**Testes/evals:** ruff ✓ · format ✓ · mypy (12 arquivos) ✓ · **pytest 11 passed, 1 skipped** (integração
+Postgres pula sem `CHARUTEI_TEST_DATABASE_URL`).
+
+**Pendência de verificação (não bloqueia S1):** aplicar Alembic e rodar o teste de integração exigem
+Postgres no ar (OrbStack) — `docker compose up` + `uv run --extra postgres alembic ... upgrade head`.
+
+**Próximos passos registrados (controlados, não inventar dados):**
+- Expandir o seed para 100–300 SKUs ingerindo de **catálogo verificado** (Habanos S.A., Halfwheel,
+  Cigar Aficionado). Campos incertos (ex.: fábrica por SKU) permanecem `null` até confirmação.
+- Enriquecimento automático do KG por evento entra na S4+ (Cigar Intelligence — fora do MVP atual).
+
+## S0 — Fundação (✅)
 **Entregue:**
 - uv workspace (`pyproject.toml` raiz + `packages/contracts`), Python 3.12, ruff/pytest/mypy.
 - `packages/contracts`: `Tier`, `CascadeResult`, `Citation` + smoke test.

@@ -1,0 +1,26 @@
+[project]
+name = "charutei-knowledge"
+version = "0.0.0"
+description = "Camada de conhecimento (OLTP + KG relacional + vetor) atrás de interfaces."
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.7",
+    "charutei-contracts",
+]
+
+[project.optional-dependencies]
+# Implementação Postgres (raw SQL + pgvector). Não exigida para os testes in-memory/CI.
+postgres = [
+    "psycopg[binary]>=3.2",
+    "alembic>=1.13",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/charutei_knowledge"]
+
+[tool.uv.sources]
+charutei-contracts = { workspace = true }
