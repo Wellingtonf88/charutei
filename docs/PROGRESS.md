@@ -15,11 +15,11 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
 | S5 | Assistant + RAG mínimo | ✅ |
 | S6 | Mobile (Expo) + BFF | ✅ |
 | S7 | Evals & CI (gates) | ✅ |
-| S8 | Cigar Intelligence — ingestão de catálogo de SKU no KG | 🚧 |
+| S8 | Cigar Intelligence — ingestão de catálogo de SKU no KG | ✅ |
 
 ---
 
-## S8 — Cigar Intelligence: ingestão de catálogo de SKU (🚧)
+## S8 — Cigar Intelligence: ingestão de catálogo de SKU (✅)
 **Entregue:**
 - Agente `services/agents/cigar_intelligence` (no workspace uv). **Sem LLM** — ingestão 100% determinística,
   alinhada ao princípio "LLM é o último recurso" (enriquecimento do KG por catálogo verificado, não por geração).
@@ -29,18 +29,21 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
   confiança → fila HITL** (nunca sobrescreve em silêncio; `apply_conflicts=True` força) → upsert idempotente
   de nós/arestas → harmonização por **regra de força** (não por SKU) → evento `sku.detectado` (outbox).
 - **`review.py`**: `ReviewQueue` (Protocol) + `InMemoryReviewQueue` para conflitos (HITL).
-- **Dados**: `data/catalog/cigars.csv` — **43 SKUs reais verificados** (Cuba 20 · Nicarágua 10 · Rep.
-  Dominicana 10 · Honduras 3), disjuntos do seed de 32 (total 75 charutos no KG).
+- **Dados**: `data/catalog/cigars.csv` — **109 SKUs reais verificados** (Cuba 50 · Nicarágua 26 · Rep.
+  Dominicana 23 · Honduras 10), dentro da meta de 100–300 da S1. Campos incertos (ex.: fábrica em todos;
+  vitola de Plasencia Alma Fuerte / LFD Andalusian Bull / LFD Chisel) ficam `null`.
 - **`scripts/ingest_catalog.py`**: ingestão in-memory (semeado) + `--postgres`.
+
+**Reconciliação com o seed:** 24 SKUs do catálogo coincidem com o seed curado (S1) e **enriquecem** nós
+existentes; 3 divergências de força (Montecristo No. 4, Partagás Lusitanias, Hoyo Epicure No. 2) caíram na
+fila HITL e foram **alinhadas ao seed curado** (fonte de verdade) — força é avaliação debatível, não se
+inventa divergência. Resultado: 0 conflitos residuais.
 
 **Testes/evals:** ruff ✓ · format ✓ · mypy (5 arquivos novos) ✓ · **pytest 70 passed, 3 skipped** (repo
 inteiro) · **4 gates PASS** (cascata/band/groundedness/custo, sem regressão).
 
-**Ingestão (in-memory):** `32 (seed) → 75 (catálogo)` · `created=43, updated=0, unchanged=0, conflicts=0` ·
+**Ingestão (in-memory):** `32 (seed) → 117 (catálogo)` · `created=85, updated=24, unchanged=0, conflicts=0` ·
 HITL: 0 itens.
-
-**Em andamento:** expandir o catálogo verificado em direção a **100–300 SKUs** (mais marcas/países),
-mantendo campos incertos `null` até confirmação.
 
 ## S7 — Evals & CI (✅) — MVP COMPLETO
 **Entregue:**
