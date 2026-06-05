@@ -72,6 +72,9 @@ class InMemoryKnowledgeGraph:
     async def harmonizations(self, cigar_id: str) -> list[KGNode]:
         return await self.neighbors(cigar_id, rel=EdgeRel.PAIRS_WITH)
 
+    async def nodes_by_type(self, node_type: str) -> list[KGNode]:
+        return [n for n in self._nodes.values() if n.type == node_type]
+
     async def version(self) -> int:
         return self._version
 

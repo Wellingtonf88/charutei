@@ -1,0 +1,25 @@
+[project]
+name = "charutei-assistant"
+version = "0.0.0"
+description = "Conversational Assistant: cache → KG → RAG (Sonnet) com citações, gating de Opus."
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.7",
+    "charutei-contracts",
+    "charutei-knowledge",
+    "charutei-cache",
+    "charutei-orchestrator",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/charutei_assistant"]
+
+[tool.uv.sources]
+charutei-contracts = { workspace = true }
+charutei-knowledge = { workspace = true }
+charutei-cache = { workspace = true }
+charutei-orchestrator = { workspace = true }

@@ -33,6 +33,10 @@ class KnowledgeGraphRepo(Protocol):
         """Vizinhos de saída de `node_id`, opcionalmente filtrados por relação."""
         ...
 
+    async def nodes_by_type(self, node_type: str) -> list[KGNode]:
+        """Todos os nós de um tipo (ex.: 'cigar') — usado p/ detectar entidades citadas."""
+        ...
+
     async def harmonizations(self, cigar_id: str) -> list[KGNode]:
         """Harmonizações (pairings) de um charuto — pergunta-âncora do assistente."""
         ...

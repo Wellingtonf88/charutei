@@ -92,6 +92,12 @@ class PostgresKnowledgeGraph:
     async def harmonizations(self, cigar_id: str) -> list[KGNode]:
         return await self.neighbors(cigar_id, rel="pairs_with")
 
+    async def nodes_by_type(self, node_type: str) -> list[KGNode]:
+        cur = await self._conn.execute(
+            "SELECT id, type, label, props FROM kg_nodes WHERE type = %s", (node_type,)
+        )
+        return [self._row_to_node(r) for r in await cur.fetchall()]
+
     async def version(self) -> int:
         cur = await self._conn.execute("SELECT version FROM kg_version WHERE id = 1")
         row = await cur.fetchone()

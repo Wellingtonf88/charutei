@@ -40,6 +40,7 @@ members = [
     "packages/events",
     "services/orchestrator",
     "services/agents/band_recognition",
+    "services/agents/assistant",
     "services/workers/embedding",
 ]
 

@@ -11,7 +11,7 @@ from pathlib import Path
 
 from charutei_orchestrator import cascade_metrics
 
-from evals._fixtures import build_assistant_harness
+from evals._fixtures import build_assistant
 from evals.harness import EvalReport
 
 _QUERIES = Path(__file__).resolve().parent / "datasets" / "assistant_queries.json"
@@ -21,9 +21,9 @@ GATE_AVG_COST_USD = 0.005
 
 
 async def run() -> EvalReport:
-    harness = await build_assistant_harness()
+    assistant = await build_assistant()
     queries = json.loads(_QUERIES.read_text(encoding="utf-8"))["queries"]
-    results = [await harness.ask(item["q"]) for item in queries]
+    results = [await assistant.ask(item["q"]) for item in queries]
     m = cascade_metrics(results)
 
     passed = m.pct_without_opus >= GATE_PCT_WITHOUT_OPUS and m.avg_cost_usd <= GATE_AVG_COST_USD

@@ -12,11 +12,33 @@ Registro de avanço por slice vertical (S0–S7). Princípio reitor: **"LLM é o
 | S2 | Cascata (Router + Registry + Governance + cache + Langfuse) | ✅ |
 | S3 | Band Recognition Agent | ✅ |
 | S4 | Eventos (outbox + worker + DLQ) | ✅ |
-| S5 | Assistant + RAG mínimo | ⬜ |
+| S5 | Assistant + RAG mínimo | ✅ |
 | S6 | Mobile (Expo) | ⬜ |
 | S7 | Evals & CI (gates) | ⬜ |
 
 ---
+
+## S5 — Assistant + RAG mínimo (✅)
+**Entregue:**
+- **`services/agents/assistant`**: orquestra pela cascata cache → **KG (fato)** → **RAG (Sonnet)** →
+  Opus (gated), sempre **com citações**.
+- **`KGAssistantResolver`** (degrau 2): detecta o charuto citado (via `nodes_by_type`) e responde
+  harmonização/ficha pelo grafo, sem LLM, com citações de nós do KG.
+- **RAG mínimo** (`rag.py`): `DocumentStore` (corpus indexado) + `RagGenerator` — recuperação híbrida →
+  **rerank** lexical → **compressão extrativa** → geração com citações dos documentos.
+- **Hook `Generator`** na cascata: a geração virou plugável (RAG injeta contexto/citações sem mudar o motor).
+- Corpus `evals/datasets/cigar_docs.json` (conhecimento geral real); `nodes_by_type` adicionado ao KG
+  (interface + in-memory + Postgres).
+- **Evals novos** no CI: `assistant_groundedness` e `cost_per_interaction` (os 4 gates do Anexo C ativos).
+
+**Testes/evals:** ruff ✓ · format ✓ · mypy (38 arquivos) ✓ · **pytest 50 passed, 3 skipped** · **4 evals PASS**.
+
+**Métricas (11 consultas):** **100% sem Opus** · custo médio **$0.00018/msg** (limite $0,005 ✓) ·
+**groundedness 100%** (11/11 ancoradas) · distribuição: KG 64% · RAG/Sonnet 36%.
+
+**Decisão de design:** a confiança que governa o gating de Opus reflete **se a resposta está ancorada**
+(achou fonte → confiança alta, sem Opus), não o score bruto de retrieval — Opus fica como último recurso
+quando o RAG não encontra base.
 
 ## S4 — Eventos (✅)
 **Entregue:**
@@ -121,5 +143,6 @@ Postgres no ar (OrbStack) — `docker compose up` + `uv run --extra postgres ale
 só por gatilho de escala.
 
 ## Métricas da cascata
-Instrumentadas na S2 via `Tracer` (Langfuse na produção). No dataset de eval atual: **100% sem Opus**,
-custo médio **$0.00007/msg**, 64% resolvido no degrau determinístico (KG).
+Instrumentadas via `Tracer` (Langfuse na produção). Assistente no dataset de eval: **100% sem Opus**,
+custo médio **$0.00018/msg**, **groundedness 100%**, 64% no degrau determinístico (KG) e 36% RAG/Sonnet.
+Band Recognition: acurácia 100%, 90% sem visão.

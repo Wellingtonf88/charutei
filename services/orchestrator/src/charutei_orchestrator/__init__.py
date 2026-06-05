@@ -1,6 +1,12 @@
 """Orchestrator do CHARUTEI: Router, Registry, Governance e cascata de inteligência."""
 
-from charutei_orchestrator.cascade import Cascade, DeterministicResolver, KgVersionFn
+from charutei_orchestrator.cascade import (
+    Cascade,
+    DeterministicResolver,
+    GenerationOutput,
+    Generator,
+    KgVersionFn,
+)
 from charutei_orchestrator.governance import EscalationDecision, Governance, GovernanceError
 from charutei_orchestrator.metrics import CascadeMetrics, cascade_metrics
 from charutei_orchestrator.providers import (
@@ -30,6 +36,8 @@ from charutei_orchestrator.router import Intent, RouteDecision, classify
 __all__ = [
     "Cascade",
     "DeterministicResolver",
+    "GenerationOutput",
+    "Generator",
     "KgVersionFn",
     "CascadeMetrics",
     "cascade_metrics",

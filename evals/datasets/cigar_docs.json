@@ -1,0 +1,13 @@
+{
+  "_meta": {
+    "description": "Corpus de conhecimento geral sobre charutos para o RAG do assistente (respostas não-estruturadas). Fatos gerais amplamente aceitos; fichas de SKU vêm do KG, não daqui."
+  },
+  "docs": [
+    {"id": "doc-humidor", "title": "Armazenamento em humidor", "text": "Charutos devem ser guardados em um humidor com umidade relativa em torno de 70% e temperatura próxima de 18°C. Use um higrômetro para monitorar a umidade. Umidade baixa resseca o charuto; umidade alta favorece mofo. Mantenha o humidor longe de luz solar direta."},
+    {"id": "doc-corte", "title": "Como cortar um charuto", "text": "O corte deve ser feito logo acima da linha do cap (a tampa do charuto) para não desfazer o enrolamento. As opções mais comuns são a guilhotina (corte reto), o punch (furo) e o corte em V. Um corte limpo evita que a capa se desfie durante a fumada."},
+    {"id": "doc-acender", "title": "Como acender um charuto", "text": "Primeiro toste levemente o pé do charuto sem encostar a chama diretamente, girando para aquecer de forma uniforme. Use fósforos longos de cedro ou um isqueiro de butano; evite isqueiros comuns com fluido, pois o benzina altera o sabor. Dê tragadas suaves enquanto acende."},
+    {"id": "doc-iniciantes", "title": "Dicas para iniciantes", "text": "Iniciantes devem começar por charutos de força suave a média. Charuto não se traga: a fumaça é apreciada na boca e liberada. Fume em ritmo lento, cerca de uma tragada por minuto, para não superaquecer. Tenha água ou uma bebida para acompanhar."},
+    {"id": "doc-forca", "title": "Força e corpo do charuto", "text": "A força refere-se ao impacto da nicotina, enquanto o corpo descreve a intensidade do sabor. Charutos são classificados de suave a encorpado. A força costuma aumentar ao longo da fumada. Iniciantes tendem a preferir perfis suaves a médios."},
+    {"id": "doc-conservacao", "title": "Envelhecimento e rotação", "text": "Charutos podem envelhecer no humidor, suavizando e integrando sabores ao longo de meses ou anos. Faça rotação periódica dos charutos para que envelheçam de maneira uniforme. Mantenha umidade e temperatura estáveis para um envelhecimento consistente."}
+  ]
+}

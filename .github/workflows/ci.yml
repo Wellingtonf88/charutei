@@ -47,7 +47,7 @@ jobs:
       # Gates de qualidade/custo. Novos evals entram conforme suas slices
       # (band_recognition, assistant_groundedness, cost_per_interaction).
       - name: Evals (gates)
-        run: uv run python -m evals cascade_efficiency band_recognition
+        run: uv run python -m evals
 
   secrets:
     runs-on: ubuntu-latest

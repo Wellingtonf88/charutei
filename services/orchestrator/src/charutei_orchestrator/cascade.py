@@ -2,7 +2,8 @@
 
 `1 cache → 2 KG/SQL → 3/4 geração (Haiku/Sonnet) → 5 Opus (gated)`. Toda etapa é
 contabilizada (tier, custo, tokens, latência) via Tracer. Governança decide cada escalada;
-cache exato+semântico guarda o resultado para a próxima vez. Nenhum SDK é chamado fora daqui.
+cache exato+semântico guarda o resultado. A geração é plugável via `Generator` — o assistente
+injeta RAG (recuperação + citações) sem mudar o motor. Nenhum SDK é chamado fora daqui.
 """
 
 from __future__ import annotations
@@ -11,10 +12,11 @@ import time
 from collections.abc import Awaitable, Callable
 
 from charutei_cache import ExactCache, SemanticCache
-from charutei_contracts import CascadeResult, Tier
+from charutei_contracts import CascadeResult, Citation, Tier
+from pydantic import BaseModel, Field
 
 from charutei_orchestrator.governance import Governance
-from charutei_orchestrator.providers import LLMProvider, LLMResponse, Tracer, TraceRecord
+from charutei_orchestrator.providers import LLMProvider, Tracer, TraceRecord
 from charutei_orchestrator.registry import TIER_MODELS, AgentRegistry, AgentSpec
 from charutei_orchestrator.router import RouteDecision, classify
 
@@ -22,6 +24,22 @@ from charutei_orchestrator.router import RouteDecision, classify
 # (com citações) ou None se não souber responder — aí a cascata sobe para geração.
 DeterministicResolver = Callable[[str, RouteDecision], Awaitable[CascadeResult | None]]
 KgVersionFn = Callable[[], Awaitable[int]]
+
+
+class GenerationOutput(BaseModel):
+    """Saída de um passo de geração (com ou sem RAG)."""
+
+    text: str
+    model: str
+    citations: list[Citation] = Field(default_factory=list)
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost_usd: float = 0.0
+    confidence: float = 1.0
+
+
+# Gerador plugável: recebe (model, system, prompt) e devolve texto + citações + custo.
+Generator = Callable[[str, str, str], Awaitable[GenerationOutput]]
 
 
 class Cascade:
@@ -36,6 +54,7 @@ class Cascade:
         semantic_cache: SemanticCache | None = None,
         kg_version: KgVersionFn | None = None,
         generation_start: Tier = Tier.MEDIUM,
+        generator: Generator | None = None,
     ) -> None:
         self._registry = registry
         self._gov = governance
@@ -45,6 +64,7 @@ class Cascade:
         self._semantic = semantic_cache
         self._kg_version = kg_version
         self._gen_start = generation_start
+        self._generator = generator or self._default_generator
 
     async def resolve(
         self,
@@ -89,31 +109,42 @@ class Cascade:
     async def _generate(self, spec: AgentSpec, text: str, system: str) -> CascadeResult:
         tier: Tier = min(self._gen_start, self._gov.effective_max_tier(spec))
         t0 = time.perf_counter()
-        resp = await self._llm.generate(model=TIER_MODELS[tier], system=system, prompt=text)
-        tokens_used = resp.input_tokens + resp.output_tokens
-        cost = resp.cost_usd
-        await self._trace("generation", tier, t0, model=resp.model, resp=resp)
+        out = await self._generator(TIER_MODELS[tier], system, text)
+        tokens_used = out.input_tokens + out.output_tokens
+        cost = out.cost_usd
+        await self._trace("generation", tier, t0, output=out)
 
         # Gating de Opus: só sobe se confiança baixa E governança autorizar.
         decision = self._gov.can_escalate(
-            spec, Tier.LARGE, confidence=resp.confidence, tokens_used=tokens_used
+            spec, Tier.LARGE, confidence=out.confidence, tokens_used=tokens_used
         )
         if decision.allowed:
             t1 = time.perf_counter()
-            resp = await self._llm.generate(
-                model=TIER_MODELS[Tier.LARGE], system=system, prompt=text
-            )
+            out = await self._generator(TIER_MODELS[Tier.LARGE], system, text)
             tier = Tier.LARGE
-            tokens_used += resp.input_tokens + resp.output_tokens
-            cost += resp.cost_usd
-            await self._trace("generation_escalated", tier, t1, model=resp.model, resp=resp)
+            tokens_used += out.input_tokens + out.output_tokens
+            cost += out.cost_usd
+            await self._trace("generation_escalated", tier, t1, output=out)
 
         return CascadeResult(
-            answer=resp.text,
+            answer=out.text,
             tier_resolved=tier,
             cost_usd=cost,
             input_tokens=tokens_used,
+            output_tokens=out.output_tokens,
+            citations=out.citations,
+        )
+
+    async def _default_generator(self, model: str, system: str, prompt: str) -> GenerationOutput:
+        """Geração padrão (sem RAG): chama o LLM e devolve sem citações."""
+        resp = await self._llm.generate(model=model, system=system, prompt=prompt)
+        return GenerationOutput(
+            text=resp.text,
+            model=resp.model,
+            input_tokens=resp.input_tokens,
             output_tokens=resp.output_tokens,
+            cost_usd=resp.cost_usd,
+            confidence=resp.confidence,
         )
 
     # ------------------------------------------------------------------ helpers
@@ -135,21 +166,15 @@ class Cascade:
             await self._semantic.set(capability, version, text, result)
 
     async def _trace(
-        self,
-        name: str,
-        tier: Tier,
-        t0: float,
-        *,
-        model: str | None = None,
-        resp: LLMResponse | None = None,
+        self, name: str, tier: Tier, t0: float, *, output: GenerationOutput | None = None
     ) -> None:
         record = TraceRecord(
             name=name,
             tier=int(tier),
-            model=model,
+            model=output.model if output else None,
             latency_ms=(time.perf_counter() - t0) * 1000.0,
-            cost_usd=resp.cost_usd if resp else 0.0,
-            input_tokens=resp.input_tokens if resp else 0,
-            output_tokens=resp.output_tokens if resp else 0,
+            cost_usd=output.cost_usd if output else 0.0,
+            input_tokens=output.input_tokens if output else 0,
+            output_tokens=output.output_tokens if output else 0,
         )
         await self._tracer.log(record)
