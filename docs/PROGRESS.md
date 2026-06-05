@@ -14,9 +14,25 @@ Registro de avanço por slice vertical (S0–S7). Princípio reitor: **"LLM é o
 | S4 | Eventos (outbox + worker + DLQ) | ✅ |
 | S5 | Assistant + RAG mínimo | ✅ |
 | S6 | Mobile (Expo) + BFF | ✅ |
-| S7 | Evals & CI (gates) | ⬜ |
+| S7 | Evals & CI (gates) | ✅ |
 
 ---
+
+## S7 — Evals & CI (✅) — MVP COMPLETO
+**Entregue:**
+- **4 gates do Anexo C** rodando como **eval CLI** (`python -m evals`, sai !=0 ao reprovar) **e como pytest**
+  (`tests/test_evals_gates.py`) — regressão de qualidade/custo falha o build por dois caminhos.
+- Teste da semântica de saída (`tests/test_evals_cli.py`): gate reprovado → exit code ≠ 0.
+- **`scripts/verify.sh`**: Definition of Done local (lint + format + tipos + testes + 4 gates).
+- **`docs/ACCEPTANCE.md`**: os 6 critérios de aceite mapeados a evidências reproduzíveis.
+- README com runbook completo (bootstrap → docker compose → migrações → BFF → app → evals).
+
+**Testes/evals:** ruff ✓ · format ✓ · mypy (44 arquivos) ✓ · **pytest 61 passed, 3 skipped** · **4 gates PASS**.
+
+**Resultado do MVP (todos os critérios mensuráveis):** reconhecimento 90% sem visão; assistente 100% sem
+Opus com groundedness 100%; custo **$0.00018/msg** (limite $0,005); CI com lint+testes+evals+gitleaks;
+`docker compose up` sobe Postgres+Redis. Fronteiras honestas (Langfuse real, providers reais, simulador
+mobile, seed 100–300) documentadas em `docs/ACCEPTANCE.md`.
 
 ## S6 — Mobile (Expo) + BFF (✅)
 **Entregue:**
