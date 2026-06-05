@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "description": "Consultas de avaliação do assistente. Mix esperado: maioria resolvida no degrau determinístico (KG), restante por geração (Sonnet). Nenhuma deve exigir Opus.",
+    "gates": {"pct_without_opus": ">=0.70", "avg_cost_usd": "<=0.005"}
+  },
+  "queries": [
+    {"q": "Com o que harmoniza o Partagás Serie D No. 4?", "expect_tier_max": "DETERMINISTIC"},
+    {"q": "Que bebida combina com o Cohiba Robustos?", "expect_tier_max": "DETERMINISTIC"},
+    {"q": "Harmonização para o Montecristo No. 2", "expect_tier_max": "DETERMINISTIC"},
+    {"q": "O que acompanha o Padrón 1964 Anniversary Series Exclusivo?", "expect_tier_max": "DETERMINISTIC"},
+    {"q": "Qual a força do Oliva Serie V Melanio Robusto?", "expect_tier_max": "DETERMINISTIC"},
+    {"q": "Qual o país do Davidoff Grand Cru No. 3?", "expect_tier_max": "DETERMINISTIC"},
+    {"q": "Qual a vitola do Romeo y Julieta Churchills?", "expect_tier_max": "DETERMINISTIC"},
+    {"q": "Como devo armazenar meus charutos no humidor?", "expect_tier_max": "MEDIUM"},
+    {"q": "Qual a melhor forma de cortar um charuto?", "expect_tier_max": "MEDIUM"},
+    {"q": "Como acender um charuto corretamente?", "expect_tier_max": "MEDIUM"},
+    {"q": "Dicas para iniciantes apreciarem charutos", "expect_tier_max": "MEDIUM"}
+  ]
+}

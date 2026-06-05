@@ -16,6 +16,11 @@ providers = [
     "google-genai>=0.3",
     "langfuse>=2.0",
 ]
+# Caminho Postgres (migrações + repositórios). Espelha o extra de packages/knowledge.
+postgres = [
+    "psycopg[binary]>=3.2",
+    "alembic>=1.13",
+]
 
 [dependency-groups]
 dev = [
@@ -31,6 +36,8 @@ dev = [
 members = [
     "packages/contracts",
     "packages/knowledge",
+    "packages/cache",
+    "services/orchestrator",
 ]
 
 [tool.uv.sources]
@@ -39,7 +46,7 @@ charutei-contracts = { workspace = true }
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["packages", "services", "tests"]
+src = ["packages", "services", "tests", "evals"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
@@ -48,13 +55,16 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 asyncio_mode = "auto"
 testpaths = ["tests", "packages", "services"]
 pythonpath = ["."]
+# importlib evita colisão de basenames de teste iguais entre pacotes (ex.: test_cascade.py).
+addopts = "--import-mode=importlib"
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
 ignore_missing_imports = true
-# Migrações Alembic são boilerplate gerado e rodam fora do CI de tipos.
-exclude = ["migrations/"]
+# Migrações (boilerplate) e testes ficam fora do CI de tipos — o pytest os exercita,
+# e basenames de teste repetidos entre pacotes colidem no resolvedor do mypy.
+exclude = ["migrations/", "/tests/"]
 
 [build-system]
 requires = ["hatchling"]

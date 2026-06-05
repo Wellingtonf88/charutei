@@ -9,7 +9,7 @@ Registro de avanço por slice vertical (S0–S7). Princípio reitor: **"LLM é o
 |---|---|---|
 | S0 | Fundação (scaffold, docker-compose, CI, CLAUDE.md) | ✅ |
 | S1 | Conhecimento (OLTP + KG relacional + interfaces) | ✅ |
-| S2 | Cascata (Router + Registry + Governance + cache + Langfuse) | ⬜ |
+| S2 | Cascata (Router + Registry + Governance + cache + Langfuse) | ✅ |
 | S3 | Band Recognition Agent | ⬜ |
 | S4 | Eventos (outbox + worker + DLQ) | ⬜ |
 | S5 | Assistant + RAG mínimo | ⬜ |
@@ -17,6 +17,28 @@ Registro de avanço por slice vertical (S0–S7). Princípio reitor: **"LLM é o
 | S7 | Evals & CI (gates) | ⬜ |
 
 ---
+
+## S2 — Cascata (✅)
+**Entregue:**
+- **Provedores atrás de interface** (`LLMProvider`/`EmbeddingProvider`/`Tracer`) + `Fake*` determinísticos +
+  fábrica `build_providers` (lê `USE_FAKE_PROVIDERS`). Tabela de preços jun/2026 + `llm_cost`.
+- **Registry** declarativo (`AgentSpec`: tier máximo, orçamento de tokens, gating de Opus, kill-switch).
+- **Governance**: teto de tier, orçamento (degradação graciosa), gating de Opus (confiança+autorização), kill-switch.
+- **Router determinístico** (`classify`, sem LLM): harmonização / fato / geral.
+- **Cache** `packages/cache`: exato (hash) + semântico (vetorial, threshold conservador), **invalidação por
+  versão do KG** (namespace por versão), backends in-memory + Redis.
+- **Cascade**: motor `1 cache → 2 KG/SQL → 3/4 geração → 5 Opus(gated)`, tracing por etapa, cache write-back.
+- **Métricas** (`cascade_metrics`) + **eval `cascade_efficiency`** no CI (gate ≥70% sem Opus, ≤US$0,005/msg).
+
+**Testes/evals:** ruff ✓ · format ✓ · mypy (21 arquivos) ✓ · **pytest 31 passed, 1 skipped** ·
+**eval cascade_efficiency PASS**.
+
+**Métricas da cascata (dataset de eval, 11 consultas):** **100% sem Opus** · custo médio **$0.00007/msg** ·
+distribuição: DETERMINISTIC 64% · MEDIUM (Sonnet) 36% · CACHE/SMALL/LARGE 0%. (Limites de aceite: ≥70%
+sem Opus ✓ ; ≤US$0,005/msg ✓.)
+
+**Decisões:** provedores reais ainda não ligados — `build_providers(use_fake=False)` falha com mensagem
+clara até o adaptador real entrar na slice correspondente (geração na S5, Voyage/visão na S3).
 
 ## S1 — Conhecimento (✅)
 **Entregue:**
@@ -55,4 +77,5 @@ Postgres no ar (OrbStack) — `docker compose up` + `uv run --extra postgres ale
 só por gatilho de escala.
 
 ## Métricas da cascata
-_Sem tráfego ainda — instrumentação de tier/custo entra na S2 (Langfuse)._
+Instrumentadas na S2 via `Tracer` (Langfuse na produção). No dataset de eval atual: **100% sem Opus**,
+custo médio **$0.00007/msg**, 64% resolvido no degrau determinístico (KG).

@@ -29,7 +29,7 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Types (mypy)
-        run: uv run mypy packages
+        run: uv run mypy packages services
 
       - name: Tests
         run: uv run pytest -q
@@ -44,10 +44,10 @@ jobs:
           python-version: "3.12"
       - name: Sync dependencies
         run: uv sync --all-packages --dev
-      # Placeholder: harness de evals com gates entra na S2+ (cascade_efficiency,
-      # band_recognition, assistant_groundedness, cost_per_interaction).
+      # Gates de qualidade/custo. Novos evals entram conforme suas slices
+      # (band_recognition, assistant_groundedness, cost_per_interaction).
       - name: Evals (gates)
-        run: echo "evals harness: implementado a partir da S2"
+        run: uv run python -m evals cascade_efficiency
 
   secrets:
     runs-on: ubuntu-latest

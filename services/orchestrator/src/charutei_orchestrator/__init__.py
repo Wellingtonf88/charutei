@@ -1,0 +1,46 @@
+"""Orchestrator do CHARUTEI: Router, Registry, Governance e cascata de inteligência."""
+
+from charutei_orchestrator.cascade import Cascade, DeterministicResolver, KgVersionFn
+from charutei_orchestrator.governance import EscalationDecision, Governance, GovernanceError
+from charutei_orchestrator.metrics import CascadeMetrics, cascade_metrics
+from charutei_orchestrator.providers import (
+    EmbeddingProvider,
+    FakeEmbeddingProvider,
+    FakeLLMProvider,
+    FakeTracer,
+    LLMProvider,
+    LLMResponse,
+    Tracer,
+    TraceRecord,
+    build_providers,
+    llm_cost,
+)
+from charutei_orchestrator.registry import TIER_MODELS, AgentRegistry, AgentSpec
+from charutei_orchestrator.router import Intent, RouteDecision, classify
+
+__all__ = [
+    "Cascade",
+    "DeterministicResolver",
+    "KgVersionFn",
+    "CascadeMetrics",
+    "cascade_metrics",
+    "Governance",
+    "GovernanceError",
+    "EscalationDecision",
+    "AgentRegistry",
+    "AgentSpec",
+    "TIER_MODELS",
+    "classify",
+    "Intent",
+    "RouteDecision",
+    "LLMProvider",
+    "EmbeddingProvider",
+    "Tracer",
+    "TraceRecord",
+    "LLMResponse",
+    "FakeLLMProvider",
+    "FakeEmbeddingProvider",
+    "FakeTracer",
+    "build_providers",
+    "llm_cost",
+]
