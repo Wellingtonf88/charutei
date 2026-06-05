@@ -45,6 +45,16 @@ inteiro) · **4 gates PASS** (cascata/band/groundedness/custo, sem regressão).
 **Ingestão (in-memory):** `32 (seed) → 117 (catálogo)` · `created=85, updated=24, unchanged=0, conflicts=0` ·
 HITL: 0 itens.
 
+**Ingestão (Postgres real):** migrations `0002_events (head)` aplicadas · `32 (seed) → 117` ·
+`created=85, updated=24, unchanged=0, conflicts=0` · 117 nós `cigar`, 45 marcas, 27 vitolas, 267 arestas
+`pairs_with`. Testes de integração Postgres: 3 passed.
+
+**Eval `catalog_coverage` (gate S8):** `catalog_coverage=1.0 · required_edges_pct=1.0 · pairing_coverage=1.0 · vitola_null_ok=1.0`
+— registrado em `evals/catalog_coverage.py`, exposto no CLI (`python -m evals catalog_coverage`) e no pytest
+(`tests/test_evals_gates.py`).
+
+**Testes/evals finais (S8 completa):** ruff ✓ · format ✓ · mypy ✓ · **pytest 71 passed, 3 skipped** · **5 gates PASS**.
+
 ## S7 — Evals & CI (✅) — MVP COMPLETO
 **Entregue:**
 - **4 gates do Anexo C** rodando como **eval CLI** (`python -m evals`, sai !=0 ao reprovar) **e como pytest**

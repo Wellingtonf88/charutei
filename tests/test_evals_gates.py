@@ -8,6 +8,7 @@ from evals import (
     assistant_groundedness,
     band_recognition,
     cascade_efficiency,
+    catalog_coverage,
     cost_per_interaction,
 )
 
@@ -16,6 +17,7 @@ _EVALS = [
     band_recognition,
     assistant_groundedness,
     cost_per_interaction,
+    catalog_coverage,
 ]
 
 
