@@ -47,6 +47,7 @@ members = [
     "services/orchestrator",
     "services/agents/band_recognition",
     "services/agents/assistant",
+    "services/agents/cigar_intelligence",
     "services/workers/embedding",
 ]
 

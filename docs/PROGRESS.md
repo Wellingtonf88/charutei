@@ -1,6 +1,6 @@
 # PROGRESS — MVP do CHARUTEI
 
-Registro de avanço por slice vertical (S0–S7). Princípio reitor: **"LLM é o último recurso."**
+Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o último recurso."**
 
 ## Legenda de status
 ✅ concluído · 🚧 em andamento · ⬜ pendente
@@ -15,8 +15,32 @@ Registro de avanço por slice vertical (S0–S7). Princípio reitor: **"LLM é o
 | S5 | Assistant + RAG mínimo | ✅ |
 | S6 | Mobile (Expo) + BFF | ✅ |
 | S7 | Evals & CI (gates) | ✅ |
+| S8 | Cigar Intelligence — ingestão de catálogo de SKU no KG | 🚧 |
 
 ---
+
+## S8 — Cigar Intelligence: ingestão de catálogo de SKU (🚧)
+**Entregue:**
+- Agente `services/agents/cigar_intelligence` (no workspace uv). **Sem LLM** — ingestão 100% determinística,
+  alinhada ao princípio "LLM é o último recurso" (enriquecimento do KG por catálogo verificado, não por geração).
+- **`catalog.py`**: parser CSV → `CatalogRecord` (Pydantic). Valida força (`mild/medium/medium-full/full`);
+  campos incertos (ex.: fábrica) ficam `null` — **nunca se inventa dado**.
+- **`ingest.py`** `CatalogIngestor`: dedup por SKU canônico → **detecção de conflito de fato de alta
+  confiança → fila HITL** (nunca sobrescreve em silêncio; `apply_conflicts=True` força) → upsert idempotente
+  de nós/arestas → harmonização por **regra de força** (não por SKU) → evento `sku.detectado` (outbox).
+- **`review.py`**: `ReviewQueue` (Protocol) + `InMemoryReviewQueue` para conflitos (HITL).
+- **Dados**: `data/catalog/cigars.csv` — **43 SKUs reais verificados** (Cuba 20 · Nicarágua 10 · Rep.
+  Dominicana 10 · Honduras 3), disjuntos do seed de 32 (total 75 charutos no KG).
+- **`scripts/ingest_catalog.py`**: ingestão in-memory (semeado) + `--postgres`.
+
+**Testes/evals:** ruff ✓ · format ✓ · mypy (5 arquivos novos) ✓ · **pytest 70 passed, 3 skipped** (repo
+inteiro) · **4 gates PASS** (cascata/band/groundedness/custo, sem regressão).
+
+**Ingestão (in-memory):** `32 (seed) → 75 (catálogo)` · `created=43, updated=0, unchanged=0, conflicts=0` ·
+HITL: 0 itens.
+
+**Em andamento:** expandir o catálogo verificado em direção a **100–300 SKUs** (mais marcas/países),
+mantendo campos incertos `null` até confirmação.
 
 ## S7 — Evals & CI (✅) — MVP COMPLETO
 **Entregue:**

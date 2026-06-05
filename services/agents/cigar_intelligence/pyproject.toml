@@ -1,0 +1,23 @@
+[project]
+name = "charutei-cigar-intelligence"
+version = "0.0.0"
+description = "Cigar Intelligence: ingestão de catálogo no KG (dedup, conflito, HITL, eventos)."
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.7",
+    "charutei-contracts",
+    "charutei-knowledge",
+    "charutei-events",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/charutei_cigar_intelligence"]
+
+[tool.uv.sources]
+charutei-contracts = { workspace = true }
+charutei-knowledge = { workspace = true }
+charutei-events = { workspace = true }
