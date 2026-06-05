@@ -10,13 +10,36 @@ Registro de avanço por slice vertical (S0–S7). Princípio reitor: **"LLM é o
 | S0 | Fundação (scaffold, docker-compose, CI, CLAUDE.md) | ✅ |
 | S1 | Conhecimento (OLTP + KG relacional + interfaces) | ✅ |
 | S2 | Cascata (Router + Registry + Governance + cache + Langfuse) | ✅ |
-| S3 | Band Recognition Agent | ⬜ |
+| S3 | Band Recognition Agent | ✅ |
 | S4 | Eventos (outbox + worker + DLQ) | ⬜ |
 | S5 | Assistant + RAG mínimo | ⬜ |
 | S6 | Mobile (Expo) | ⬜ |
 | S7 | Evals & CI (gates) | ⬜ |
 
 ---
+
+## S3 — Band Recognition Agent (✅)
+**Entregue:**
+- **Contrato** `BandImage` / `BandCandidate` / `BandRecognitionResult` (`{cigar_id, confidence, candidates[], needs_human}`).
+- **Providers de visão** atrás de interface: `ImageEmbeddingProvider` (Voyage multimodal), `OCRProvider`,
+  `VisionProvider` (Gemini Flash) + `Fake*` determinísticos + `build_band_providers`; pricing de visão.
+- **Pipeline** (`services/agents/band_recognition`): embedding → ANN (pgvector) → desempate por OCR →
+  fallback de visão **só quando ambíguo e autorizado**. Incerto → `needs_human` (não inventa).
+- **Catálogo** indexado no espaço vetorial (`build_band_catalog`). **Governance**: `allow_vision_fallback`
+  (gating de visão por autorização). **Registry**: spec do agente.
+- **Eval `band_recognition`** no CI (gate: acurácia ≥0,90 e ≥80% sem visão) + dataset versionado.
+- **Integração pgvector** validada no banco real (ANN cosseno `<=>` + filtro por metadado).
+
+**Testes/evals:** ruff ✓ · format ✓ · mypy (25 arquivos) ✓ · **pytest 37 passed, 2 skipped** ·
+integração Postgres **2 passed** (DB real) · **eval band_recognition PASS**.
+
+**Métricas (10 anilhas de eval):** **acurácia 100%** · **90% resolvido sem LLM de visão** (1/10 via visão).
+Ambos os gates de aceite satisfeitos (≥80% sem visão ✓; acurácia ≥0,90 ✓).
+
+**Decisão de design:** removi um threshold de confiança redundante que criava "zona morta"
+(0,85–0,92 → `needs_human` indevido). Visão agora é o fallback de qualquer caso não resolvido por
+embedding/OCR, gated apenas por autorização no Registry. **Nota:** acurácia real exige Voyage multimodal +
+imagens reais; os fakes exercitam a *lógica* do pipeline (thresholds/desempate/gating).
 
 ## S2 — Cascata (✅)
 **Entregue:**

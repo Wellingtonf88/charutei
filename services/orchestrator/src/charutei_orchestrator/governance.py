@@ -67,3 +67,15 @@ class Governance:
                     ),
                 )
         return EscalationDecision(allowed=True, reason=f"escalada para {target.name} autorizada")
+
+    def can_use_vision(self, spec: AgentSpec) -> EscalationDecision:
+        """Gating do LLM de visão (anilha): fallback de qualquer caso ambíguo, só se autorizado.
+
+        A ambiguidade já está estabelecida quando o pipeline chega aqui (embedding+OCR não
+        resolveram); o controle é a autorização explícita no Registry (`allow_vision_fallback`).
+        """
+        if not spec.allow_vision_fallback:
+            return EscalationDecision(
+                allowed=False, reason="LLM de visão não autorizado para esta capability"
+            )
+        return EscalationDecision(allowed=True, reason="fallback de visão autorizado")

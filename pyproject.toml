@@ -38,6 +38,7 @@ members = [
     "packages/knowledge",
     "packages/cache",
     "services/orchestrator",
+    "services/agents/band_recognition",
 ]
 
 [tool.uv.sources]

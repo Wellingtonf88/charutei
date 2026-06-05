@@ -12,13 +12,14 @@ import asyncio
 import sys
 from collections.abc import Awaitable, Callable
 
-from evals import cascade_efficiency
+from evals import band_recognition, cascade_efficiency
 from evals.harness import EvalReport
 
-# Registro de evals disponíveis. Novos evals (band_recognition, assistant_groundedness,
-# cost_per_interaction) entram aqui conforme suas slices.
+# Registro de evals disponíveis. Novos evals (assistant_groundedness, cost_per_interaction)
+# entram aqui conforme suas slices.
 EVALS: dict[str, Callable[[], Awaitable[EvalReport]]] = {
     "cascade_efficiency": cascade_efficiency.run,
+    "band_recognition": band_recognition.run,
 }
 
 

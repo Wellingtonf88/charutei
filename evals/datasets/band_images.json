@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "description": "Anilhas de avaliação. visual_text simula o que o modelo multimodal lê; ocr_text simula o OCR. Mix: nítidas (embedding), gastas com OCR legível (OCR), ambígua sem OCR (visão).",
+    "gates": {"pct_without_vision": ">=0.80", "accuracy": ">=0.90"},
+    "note": "Fakes determinísticos exercitam a LÓGICA do pipeline (thresholds/desempate/gating). Acurácia real exige Voyage multimodal + imagens reais (próximo passo)."
+  },
+  "images": [
+    {"ref": "img-1", "visual_text": "Cohiba Behike BHK 52", "ocr_text": null, "truth": "cohiba-behike-52", "path": "embedding"},
+    {"ref": "img-2", "visual_text": "Partagás Serie D No. 4", "ocr_text": null, "truth": "partagas-serie-d-no-4", "path": "embedding"},
+    {"ref": "img-3", "visual_text": "Padrón 1964 Anniversary Series Exclusivo", "ocr_text": null, "truth": "padron-1964-anniversary-exclusivo", "path": "embedding"},
+    {"ref": "img-4", "visual_text": "Oliva Serie V Melanio Robusto", "ocr_text": null, "truth": "oliva-serie-v-melanio-robusto", "path": "embedding"},
+    {"ref": "img-5", "visual_text": "Davidoff Grand Cru No. 3", "ocr_text": null, "truth": "davidoff-grand-cru-no-3", "path": "embedding"},
+    {"ref": "img-6", "visual_text": "Drew Estate Liga Privada No. 9 Robusto", "ocr_text": null, "truth": "liga-privada-no-9-robusto", "path": "embedding"},
+    {"ref": "img-7", "visual_text": "Trinidad Fundadores", "ocr_text": null, "truth": "trinidad-fundadores", "path": "embedding"},
+    {"ref": "img-8", "visual_text": "Cohiba", "ocr_text": "Cohiba Robustos", "truth": "cohiba-robustos", "path": "ocr"},
+    {"ref": "img-9", "visual_text": "Montecristo", "ocr_text": "Montecristo No 2", "truth": "montecristo-no-2", "path": "ocr"},
+    {"ref": "img-10", "visual_text": "Romeo y Julieta", "ocr_text": null, "truth": "romeo-y-julieta-churchill", "path": "vision"}
+  ]
+}

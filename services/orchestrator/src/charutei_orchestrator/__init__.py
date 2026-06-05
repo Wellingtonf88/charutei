@@ -6,14 +6,23 @@ from charutei_orchestrator.metrics import CascadeMetrics, cascade_metrics
 from charutei_orchestrator.providers import (
     EmbeddingProvider,
     FakeEmbeddingProvider,
+    FakeImageEmbeddingProvider,
     FakeLLMProvider,
+    FakeOCRProvider,
     FakeTracer,
+    FakeVisionProvider,
+    ImageEmbeddingProvider,
     LLMProvider,
     LLMResponse,
+    OCRProvider,
     Tracer,
     TraceRecord,
+    VisionProvider,
+    VisionResult,
+    build_band_providers,
     build_providers,
     llm_cost,
+    vision_cost,
 )
 from charutei_orchestrator.registry import TIER_MODELS, AgentRegistry, AgentSpec
 from charutei_orchestrator.router import Intent, RouteDecision, classify
@@ -43,4 +52,13 @@ __all__ = [
     "FakeTracer",
     "build_providers",
     "llm_cost",
+    "ImageEmbeddingProvider",
+    "OCRProvider",
+    "VisionProvider",
+    "VisionResult",
+    "FakeImageEmbeddingProvider",
+    "FakeOCRProvider",
+    "FakeVisionProvider",
+    "build_band_providers",
+    "vision_cost",
 ]

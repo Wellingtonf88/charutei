@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import psycopg
+from psycopg.types.json import Json
 
 from charutei_knowledge.models import (
     Band,
@@ -51,7 +52,7 @@ class PostgresKnowledgeGraph:
             ON CONFLICT (id) DO UPDATE
               SET label = EXCLUDED.label, props = EXCLUDED.props
             """,
-            (node.id, str(node.type), node.label, psycopg.types.json.Json(node.props)),
+            (node.id, str(node.type), node.label, Json(node.props)),
         )
         await self._bump_version()
         await self._conn.commit()
@@ -63,7 +64,7 @@ class PostgresKnowledgeGraph:
             VALUES (%s, %s, %s, %s::jsonb)
             ON CONFLICT (src, dst, rel) DO UPDATE SET props = EXCLUDED.props
             """,
-            (edge.src, edge.dst, str(edge.rel), psycopg.types.json.Json(edge.props)),
+            (edge.src, edge.dst, str(edge.rel), Json(edge.props)),
         )
         await self._bump_version()
         await self._conn.commit()
@@ -121,7 +122,7 @@ class PostgresVectorRepository:
             ON CONFLICT (kind, item_id) DO UPDATE
               SET embedding = EXCLUDED.embedding, metadata = EXCLUDED.metadata
             """,
-            (kind, item_id, _vec_literal(embedding), psycopg.types.json.Json(metadata or {})),
+            (kind, item_id, _vec_literal(embedding), Json(metadata or {})),
         )
         await self._conn.commit()
 
@@ -139,7 +140,7 @@ class PostgresVectorRepository:
         params: list[Any] = [_vec_literal(embedding), kind]
         if filters:
             sql += " AND metadata @> %s::jsonb"
-            params.append(psycopg.types.json.Json(filters))
+            params.append(Json(filters))
         sql += " ORDER BY embedding <=> %s::vector LIMIT %s"
         params.extend([_vec_literal(embedding), k])
         cur = await self._conn.execute(sql, tuple(params))
