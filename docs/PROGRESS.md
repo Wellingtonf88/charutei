@@ -13,10 +13,29 @@ Registro de avanço por slice vertical (S0–S7). Princípio reitor: **"LLM é o
 | S3 | Band Recognition Agent | ✅ |
 | S4 | Eventos (outbox + worker + DLQ) | ✅ |
 | S5 | Assistant + RAG mínimo | ✅ |
-| S6 | Mobile (Expo) | ⬜ |
+| S6 | Mobile (Expo) + BFF | ✅ |
 | S7 | Evals & CI (gates) | ⬜ |
 
 ---
+
+## S6 — Mobile (Expo) + BFF (✅)
+**Entregue:**
+- **BFF FastAPI** (`services/api`): `POST /bands/recognize`, `POST /collection/items` (com **Idempotency-Key**),
+  `GET /collection`, `GET /healthz`. Auth via `Authorization: Bearer`. Escritas publicam eventos (outbox).
+- **Auth atrás de interface** (`AuthProvider`): `FakeAuthProvider` (dev/CI, qualquer token) + stub
+  `SupabaseAuthProvider` (JWT real ligado quando houver chaves). Padrão do projeto — sem chave no MVP.
+- **AppContext**: monta band agent (catálogo do KG) + OLTP + outbox + auth uma vez; troca p/ Postgres/Supabase
+  é injeção, sem mudar handlers. Entrypoint `charutei_api.main:app` p/ `uvicorn`.
+- **App Expo** (`apps/mobile`): fluxo login → captura (expo-camera) → reconhecimento → adicionar à coleção;
+  cliente da API (`src/api.ts`). **Entregue como código — não executado em simulador neste ambiente.**
+
+**Testes/evals:** ruff ✓ · format ✓ · mypy (43 arquivos) ✓ · **pytest 55 passed, 3 skipped** · 4 evals PASS.
+
+**Validação real:** BFF subiu via `uvicorn` e respondeu HTTP de verdade — `/bands/recognize` reconheceu
+`cigar:partagas-serie-d-no-4` (conf. 1.0, tier 3, sem visão), coleção adicionou/listou, sem auth → 401.
+
+**Decisões/registros:** Supabase Auth real e captura via react-native-vision-camera (dev build) ficam como
+ligação por env/produção; o app mobile precisa de simulador iOS/Android para execução (fora deste ambiente).
 
 ## S5 — Assistant + RAG mínimo (✅)
 **Entregue:**

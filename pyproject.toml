@@ -21,6 +21,10 @@ postgres = [
     "psycopg[binary]>=3.2",
     "alembic>=1.13",
 ]
+# Servir o BFF localmente. Espelha o extra de services/api.
+serve = [
+    "uvicorn>=0.30",
+]
 
 [dependency-groups]
 dev = [
@@ -28,6 +32,7 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
     "mypy>=1.11",
+    "httpx>=0.27",
 ]
 
 [tool.uv.workspace]
@@ -38,6 +43,7 @@ members = [
     "packages/knowledge",
     "packages/cache",
     "packages/events",
+    "services/api",
     "services/orchestrator",
     "services/agents/band_recognition",
     "services/agents/assistant",
@@ -54,6 +60,10 @@ src = ["packages", "services", "tests", "evals"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# FastAPI usa `Depends()/Header()` em defaults de argumento — padrão idiomático, não bug.
+"services/api/**" = ["B008"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

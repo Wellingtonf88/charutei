@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "CHARUTEI",
+    "slug": "charutei",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": { "supportsTablet": true },
+    "android": { "package": "co.heimr.charutei" },
+    "plugins": [
+      ["expo-camera", { "cameraPermission": "O CHARUTEI usa a câmera para reconhecer a anilha do charuto." }]
+    ],
+    "extra": {
+      "apiBaseUrl": "http://localhost:8000"
+    }
+  }
+}
