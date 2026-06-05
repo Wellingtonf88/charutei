@@ -1,0 +1,18 @@
+[project]
+name = "charutei-events"
+version = "0.0.0"
+description = "Event bus mínimo: outbox transacional, idempotência, retry/backoff e DLQ."
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.7",
+]
+
+[project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.2"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/charutei_events"]

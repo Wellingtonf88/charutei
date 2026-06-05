@@ -37,8 +37,10 @@ members = [
     "packages/contracts",
     "packages/knowledge",
     "packages/cache",
+    "packages/events",
     "services/orchestrator",
     "services/agents/band_recognition",
+    "services/workers/embedding",
 ]
 
 [tool.uv.sources]

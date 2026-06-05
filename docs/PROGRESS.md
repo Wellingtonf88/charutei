@@ -11,12 +11,33 @@ Registro de avanço por slice vertical (S0–S7). Princípio reitor: **"LLM é o
 | S1 | Conhecimento (OLTP + KG relacional + interfaces) | ✅ |
 | S2 | Cascata (Router + Registry + Governance + cache + Langfuse) | ✅ |
 | S3 | Band Recognition Agent | ✅ |
-| S4 | Eventos (outbox + worker + DLQ) | ⬜ |
+| S4 | Eventos (outbox + worker + DLQ) | ✅ |
 | S5 | Assistant + RAG mínimo | ⬜ |
 | S6 | Mobile (Expo) | ⬜ |
 | S7 | Evals & CI (gates) | ⬜ |
 
 ---
+
+## S4 — Eventos (✅)
+**Entregue:**
+- **`packages/events`**: `Event`/`Delivery`/`DeadLetter` + `EventType` (anilha.cadastrada, imagem.enviada,
+  sku.detectado, colecao.alterada). Interfaces `EventBus`/`Outbox`/`ProcessedRegistry` + `RetryPolicy`.
+- **In-memory**: `InMemoryEventBus` (poll/ack/nack → retry/backoff → **DLQ**), `InMemoryOutbox`
+  (publicação idempotente), `InMemoryProcessedRegistry` (dedupe por `event_id`).
+- **Durável (Postgres)**: `PostgresOutbox`/`PostgresProcessedRegistry` + tabelas `outbox`/`processed_events`
+  (migração **0002_events**), com `ON CONFLICT` (idempotência) e publicação transacional.
+- **Embedding Worker** (`services/workers/embedding`): consome `imagem.enviada`/`sku.detectado`, embeda via
+  provider (interface, sem SDK direto), **cache por hash de conteúdo** (não re-embeda), **idempotente**
+  (marca antes do ack), falha → **retry/DLQ**. Materializa no `VectorRepository`.
+
+**Testes/evals:** ruff ✓ · format ✓ · mypy (34 arquivos) ✓ · **pytest 46 passed, 3 skipped** ·
+integração Postgres (KG/vector/outbox) **3 testes** passam no DB real · evals PASS.
+
+**Validação real:** migração 0002 aplicada no Postgres do OrbStack (tabelas `outbox`/`processed_events`);
+teste de integração do outbox passou contra o banco.
+
+**Fora do MVP (registrado):** pgmq/Redis Streams e Kafka são o swap de produção do `EventBus` (mesma
+interface); **Batch API (-50%)** entra no job offline de catálogo (Cigar Intelligence) — fora do MVP.
 
 ## S3 — Band Recognition Agent (✅)
 **Entregue:**
