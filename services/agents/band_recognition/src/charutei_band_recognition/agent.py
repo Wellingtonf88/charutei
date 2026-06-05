@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+import uuid
 
 from charutei_cache.interfaces import VectorIndex
 from charutei_contracts import BandCandidate, BandImage, BandRecognitionResult, Tier
@@ -78,6 +79,7 @@ class BandRecognitionAgent:
     async def recognize(self, image: BandImage) -> BandRecognitionResult:
         spec = self._registry.require(CAPABILITY)
         self._gov.ensure_enabled(spec)
+        rid = uuid.uuid4().hex
         embed_cost = EMBED_PRICING[_EMBED_MODEL] * IMAGE_TOKENS
 
         # ---- Degrau 3: embedding multimodal + ANN ----
@@ -87,7 +89,7 @@ class BandRecognitionAgent:
             BandCandidate(cigar_id=cid, label=self._labels.get(cid), score=max(0.0, min(1.0, s)))
             for cid, s in hits
         ]
-        await self._trace("embedding_ann", Tier.SMALL, cost=embed_cost)
+        await self._trace("embedding_ann", Tier.SMALL, rid, cost=embed_cost)
 
         if not candidates:
             return BandRecognitionResult(
@@ -109,7 +111,7 @@ class BandRecognitionAgent:
 
         # ---- Degrau 3: desempate por OCR ----
         ocr_text = await self._ocr.extract_text(image)
-        await self._trace("ocr", Tier.SMALL)
+        await self._trace("ocr", Tier.SMALL, rid)
         if ocr_text:
             matched = self._match_by_ocr(ocr_text, candidates)
             if len(matched) == 1:
@@ -125,7 +127,7 @@ class BandRecognitionAgent:
         decision = self._gov.can_use_vision(spec)
         if decision.allowed:
             vres = await self._vision.identify(image, candidates)
-            await self._trace("vision_llm", Tier.MEDIUM, model=vres.model, cost=vres.cost_usd)
+            await self._trace("vision_llm", Tier.MEDIUM, rid, model=vres.model, cost=vres.cost_usd)
             if vres.cigar_id and vres.confidence > 0.0:
                 return BandRecognitionResult(
                     cigar_id=vres.cigar_id,
@@ -157,6 +159,15 @@ class BandRecognitionAgent:
         return out
 
     async def _trace(
-        self, name: str, tier: Tier, *, model: str | None = None, cost: float = 0.0
+        self, name: str, tier: Tier, trace_id: str, *, model: str | None = None, cost: float = 0.0
     ) -> None:
-        await self._tracer.log(TraceRecord(name=name, tier=int(tier), model=model, cost_usd=cost))
+        await self._tracer.log(
+            TraceRecord(
+                name=name,
+                tier=int(tier),
+                model=model,
+                cost_usd=cost,
+                trace_id=trace_id,
+                capability=CAPABILITY,
+            )
+        )

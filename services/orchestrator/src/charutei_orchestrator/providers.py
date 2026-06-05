@@ -68,7 +68,10 @@ class EmbeddingProvider(Protocol):
 
 
 class TraceRecord(BaseModel):
-    """Uma etapa observada da cascata — alimenta o Langfuse (e os evals de eficiência)."""
+    """Uma etapa observada da cascata — alimenta o Langfuse (e os evals de eficiência).
+
+    `trace_id` agrupa os passos de uma mesma requisição numa única trace no Langfuse;
+    `capability` nomeia a feature (para FinOps por agente/feature)."""
 
     name: str
     tier: int
@@ -77,6 +80,8 @@ class TraceRecord(BaseModel):
     input_tokens: int = 0
     output_tokens: int = 0
     latency_ms: float = 0.0
+    trace_id: str = ""
+    capability: str = ""
     extra: dict[str, str] = Field(default_factory=dict)
 
 
@@ -238,6 +243,22 @@ def build_providers(
         "Provedores reais (Anthropic/Voyage/Langfuse) ainda não ligados. "
         "Mantenha USE_FAKE_PROVIDERS=true ou implemente o adaptador real na slice correspondente."
     )
+
+
+def build_tracer() -> Tracer:
+    """Tracer real (Langfuse) quando há chaves no ambiente; caso contrário, FakeTracer.
+
+    Independe de USE_FAKE_PROVIDERS: dá para tracear runs com providers fake para o Langfuse
+    real — útil para validar a observabilidade sem custo de LLM.
+    """
+    public_key = os.environ.get("LANGFUSE_PUBLIC_KEY")
+    secret_key = os.environ.get("LANGFUSE_SECRET_KEY")
+    host = os.environ.get("LANGFUSE_HOST", "http://localhost:3000")
+    if public_key and secret_key:
+        from charutei_orchestrator.langfuse_tracer import LangfuseTracer
+
+        return LangfuseTracer(public_key=public_key, secret_key=secret_key, host=host)
+    return FakeTracer()
 
 
 def build_band_providers(

@@ -1,0 +1,21 @@
+{
+  "name": "Retrieval / RAG",
+  "slug": "retrieval",
+  "panels": [
+    {
+      "title": "Latência p95 por etapa",
+      "view": "observations",
+      "metrics": [
+        {
+          "measure": "latency",
+          "aggregation": "p95"
+        }
+      ],
+      "dimensions": [
+        {
+          "field": "name"
+        }
+      ]
+    }
+  ]
+}

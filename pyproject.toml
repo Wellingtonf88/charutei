@@ -14,7 +14,7 @@ providers = [
     "anthropic>=0.40",
     "voyageai>=0.3",
     "google-genai>=0.3",
-    "langfuse>=2.0",
+    "langfuse>=2.0,<3",
 ]
 # Caminho Postgres (migrações + repositórios). Espelha o extra de packages/knowledge.
 postgres = [

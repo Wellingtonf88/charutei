@@ -1,0 +1,36 @@
+{
+  "name": "Operacional",
+  "slug": "operacional",
+  "panels": [
+    {
+      "title": "Observações por nível (erros)",
+      "view": "observations",
+      "metrics": [
+        {
+          "measure": "count",
+          "aggregation": "count"
+        }
+      ],
+      "dimensions": [
+        {
+          "field": "level"
+        }
+      ]
+    },
+    {
+      "title": "Latência p50 por etapa",
+      "view": "observations",
+      "metrics": [
+        {
+          "measure": "latency",
+          "aggregation": "p50"
+        }
+      ],
+      "dimensions": [
+        {
+          "field": "name"
+        }
+      ]
+    }
+  ]
+}

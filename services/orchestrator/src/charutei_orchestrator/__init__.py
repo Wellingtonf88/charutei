@@ -27,6 +27,7 @@ from charutei_orchestrator.providers import (
     VisionResult,
     build_band_providers,
     build_providers,
+    build_tracer,
     llm_cost,
     vision_cost,
 )
@@ -68,5 +69,6 @@ __all__ = [
     "FakeOCRProvider",
     "FakeVisionProvider",
     "build_band_providers",
+    "build_tracer",
     "vision_cost",
 ]

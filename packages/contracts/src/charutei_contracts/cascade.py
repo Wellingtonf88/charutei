@@ -41,6 +41,7 @@ class CascadeResult(BaseModel):
     latency_ms: float = Field(default=0.0, ge=0.0)
     citations: list[Citation] = Field(default_factory=list)
     needs_human: bool = False
+    trace_id: str = ""  # correlaciona com a trace de observabilidade (Langfuse)
 
     @property
     def used_large_model(self) -> bool:

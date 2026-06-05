@@ -1,0 +1,21 @@
+{
+  "name": "Cascata",
+  "slug": "cascata",
+  "panels": [
+    {
+      "title": "Distribuição por degrau (passo da cascata)",
+      "view": "observations",
+      "metrics": [
+        {
+          "measure": "count",
+          "aggregation": "count"
+        }
+      ],
+      "dimensions": [
+        {
+          "field": "name"
+        }
+      ]
+    }
+  ]
+}

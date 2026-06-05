@@ -1,0 +1,51 @@
+{
+  "name": "FinOps de IA",
+  "slug": "finops",
+  "panels": [
+    {
+      "title": "Custo total (USD)",
+      "view": "observations",
+      "metrics": [
+        {
+          "measure": "totalCost",
+          "aggregation": "sum"
+        }
+      ],
+      "dimensions": []
+    },
+    {
+      "title": "Custo por modelo",
+      "view": "observations",
+      "metrics": [
+        {
+          "measure": "totalCost",
+          "aggregation": "sum"
+        },
+        {
+          "measure": "count",
+          "aggregation": "count"
+        }
+      ],
+      "dimensions": [
+        {
+          "field": "providedModelName"
+        }
+      ]
+    },
+    {
+      "title": "Requisições por capability",
+      "view": "traces",
+      "metrics": [
+        {
+          "measure": "count",
+          "aggregation": "count"
+        }
+      ],
+      "dimensions": [
+        {
+          "field": "tags"
+        }
+      ]
+    }
+  ]
+}

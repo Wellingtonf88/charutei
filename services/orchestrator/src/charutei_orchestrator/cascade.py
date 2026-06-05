@@ -9,6 +9,7 @@ injeta RAG (recuperação + citações) sem mudar o motor. Nenhum SDK é chamado
 from __future__ import annotations
 
 import time
+import uuid
 from collections.abc import Awaitable, Callable
 
 from charutei_cache import ExactCache, SemanticCache
@@ -77,14 +78,17 @@ class Cascade:
         spec = self._registry.require(capability)
         self._gov.ensure_enabled(spec)
         version = await self._kg_version() if self._kg_version else 0
+        request_id = uuid.uuid4().hex
 
         # ---- Degrau 1: cache (exato → semântico) ----
         for cache_get in self._cache_getters():
             t0 = time.perf_counter()
             hit = await cache_get(capability, version, text)
             if hit is not None:
-                await self._trace("cache", Tier.CACHE, t0)
-                return hit
+                await self._trace(
+                    "cache", Tier.CACHE, t0, capability=capability, trace_id=request_id
+                )
+                return hit.model_copy(update={"trace_id": request_id})
 
         route = classify(text)
 
@@ -93,26 +97,40 @@ class Cascade:
             t0 = time.perf_counter()
             resolved = await deterministic(text, route)
             if resolved is not None:
-                await self._trace("deterministic", Tier.DETERMINISTIC, t0)
+                await self._trace(
+                    "deterministic",
+                    Tier.DETERMINISTIC,
+                    t0,
+                    capability=capability,
+                    trace_id=request_id,
+                )
+                resolved = resolved.model_copy(update={"trace_id": request_id})
                 await self._store(capability, version, text, resolved)
                 return resolved
 
         # ---- Degraus 3-5: geração (com gating de Opus) ----
         if route.allow_generation:
-            result = await self._generate(spec, text, system)
+            result = await self._generate(spec, text, system, capability, request_id)
+            result = result.model_copy(update={"trace_id": request_id})
             await self._store(capability, version, text, result)
             return result
 
         # Nada resolveu → encaminhar para humano (nunca alucina).
-        return CascadeResult(tier_resolved=Tier.DETERMINISTIC, needs_human=True)
+        return CascadeResult(
+            tier_resolved=Tier.DETERMINISTIC, needs_human=True, trace_id=request_id
+        )
 
-    async def _generate(self, spec: AgentSpec, text: str, system: str) -> CascadeResult:
+    async def _generate(
+        self, spec: AgentSpec, text: str, system: str, capability: str, request_id: str
+    ) -> CascadeResult:
         tier: Tier = min(self._gen_start, self._gov.effective_max_tier(spec))
         t0 = time.perf_counter()
         out = await self._generator(TIER_MODELS[tier], system, text)
         tokens_used = out.input_tokens + out.output_tokens
         cost = out.cost_usd
-        await self._trace("generation", tier, t0, output=out)
+        await self._trace(
+            "generation", tier, t0, output=out, capability=capability, trace_id=request_id
+        )
 
         # Gating de Opus: só sobe se confiança baixa E governança autorizar.
         decision = self._gov.can_escalate(
@@ -124,7 +142,14 @@ class Cascade:
             tier = Tier.LARGE
             tokens_used += out.input_tokens + out.output_tokens
             cost += out.cost_usd
-            await self._trace("generation_escalated", tier, t1, output=out)
+            await self._trace(
+                "generation_escalated",
+                tier,
+                t1,
+                output=out,
+                capability=capability,
+                trace_id=request_id,
+            )
 
         return CascadeResult(
             answer=out.text,
@@ -166,7 +191,14 @@ class Cascade:
             await self._semantic.set(capability, version, text, result)
 
     async def _trace(
-        self, name: str, tier: Tier, t0: float, *, output: GenerationOutput | None = None
+        self,
+        name: str,
+        tier: Tier,
+        t0: float,
+        *,
+        output: GenerationOutput | None = None,
+        capability: str = "",
+        trace_id: str = "",
     ) -> None:
         record = TraceRecord(
             name=name,
@@ -176,5 +208,7 @@ class Cascade:
             cost_usd=output.cost_usd if output else 0.0,
             input_tokens=output.input_tokens if output else 0,
             output_tokens=output.output_tokens if output else 0,
+            trace_id=trace_id,
+            capability=capability,
         )
         await self._tracer.log(record)

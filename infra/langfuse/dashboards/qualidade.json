@@ -1,0 +1,25 @@
+{
+  "name": "Qualidade & Segurança",
+  "slug": "qualidade",
+  "panels": [
+    {
+      "title": "Groundedness (média) por score",
+      "view": "scores-numeric",
+      "metrics": [
+        {
+          "measure": "value",
+          "aggregation": "avg"
+        },
+        {
+          "measure": "count",
+          "aggregation": "count"
+        }
+      ],
+      "dimensions": [
+        {
+          "field": "name"
+        }
+      ]
+    }
+  ]
+}
