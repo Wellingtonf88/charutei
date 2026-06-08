@@ -17,6 +17,31 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
 | S7 | Evals & CI (gates) | ✅ |
 | S8 | Cigar Intelligence — ingestão de catálogo de SKU no KG | ✅ |
 | S9 | Adaptadores reais: Anthropic + Voyage + Gemini | ✅ |
+| S10 | Embeddings reais no pgvector + eval ANN | ✅ |
+
+---
+
+## S10 — Embeddings reais no pgvector + eval ANN (✅)
+**Entregue:**
+- **`evals/embedding_ann_quality.py`**: gate `rank1_accuracy ≥ 0.90`. Semeia todos os charutos
+  do KG curado em `InMemoryVectorRepository` via `FakeEmbeddingProvider` (BOW), depois verifica
+  que ANN rank-1 de cada embedding é o próprio charuto. CI-safe (sem API key, sem Postgres).
+  Registrado no CLI `python -m evals` e no pytest `tests/test_evals_gates.py`.
+- **`scripts/seed_embeddings.py`**: materializa embeddings reais (Voyage `voyage-4-lite`) no
+  pgvector para todos os nós `cigar` do KG Postgres. Idempotente (upsert por `kind+item_id`),
+  batch de 50 textos, suporta `--dry-run`. Requer `VOYAGE_API_KEY` + `DATABASE_URL`.
+- Mecânica: `kind="cigar_text"`, `item_id=cigar_node.id` (ex.: `cigar:cohiba-siglo-vi`).
+
+**Para rodar com providers reais:**
+```bash
+DATABASE_URL=postgresql://charutei:charutei@localhost:5432/charutei \
+VOYAGE_API_KEY=... \
+uv run python scripts/seed_embeddings.py
+```
+
+**Testes/evals:** ruff ✓ · **pytest 72 passed, 10 skipped** · **6 gates PASS** (novo gate ANN).
+
+**Próxima slice:** S11 — `SupabaseAuthProvider.verify()` (JWT real).
 
 ---
 
