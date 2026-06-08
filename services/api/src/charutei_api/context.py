@@ -14,6 +14,7 @@ from charutei_knowledge import (
     InMemoryKnowledgeGraph,
     InMemoryOltp,
     InMemoryVectorRepository,
+    KnowledgeGraphRepo,
     NodeType,
     OltpRepository,
     seed_knowledge_graph,
@@ -34,6 +35,7 @@ class AppContext:
     oltp: OltpRepository
     outbox: InMemoryOutbox
     auth: AuthProvider
+    kg: KnowledgeGraphRepo
     idempotency_keys: set[str] = field(default_factory=set)
 
 
@@ -64,4 +66,5 @@ async def build_context(auth: AuthProvider | None = None) -> AppContext:
         oltp=InMemoryOltp(),
         outbox=InMemoryOutbox(),
         auth=auth or FakeAuthProvider(),
+        kg=kg,
     )

@@ -17,3 +17,12 @@ class RecognizeRequest(BaseModel):
 class AddItemRequest(BaseModel):
     cigar_id: str
     quantity: int = Field(default=1, gt=0)
+
+
+class CatalogEntry(BaseModel):
+    id: str
+    label: str
+    strength: str | None = None
+    brand: str | None = None
+    country: str | None = None
+    pairings: list[str] = Field(default_factory=list)

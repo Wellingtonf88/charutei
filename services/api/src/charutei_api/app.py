@@ -11,17 +11,24 @@ import uuid
 from charutei_contracts import BandImage, BandRecognitionResult
 from charutei_events import EventType
 from charutei_events.models import Event
-from charutei_knowledge import Band, Collection, CollectionItem, User
+from charutei_knowledge import Band, Collection, CollectionItem, NodeType, User
 from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from charutei_api.auth import AuthUser
 from charutei_api.context import AppContext
-from charutei_api.schemas import AddItemRequest, RecognizeRequest
+from charutei_api.schemas import AddItemRequest, CatalogEntry, RecognizeRequest
 
 
 def create_app(ctx: AppContext) -> FastAPI:
     app = FastAPI(title="CHARUTEI BFF", version="0.0.0")
     app.state.ctx = ctx
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # demo — restringir em produção
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     async def current_user(authorization: str = Header(default="")) -> AuthUser:
         token = authorization.removeprefix("Bearer ").strip()
@@ -35,6 +42,27 @@ def create_app(ctx: AppContext) -> FastAPI:
     @app.get("/healthz")
     async def healthz() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/catalog")
+    async def catalog() -> list[CatalogEntry]:
+        cigars = await ctx.kg.nodes_by_type(NodeType.CIGAR)
+        entries: list[CatalogEntry] = []
+        for c in cigars:
+            brand_nodes = await ctx.kg.neighbors(c.id, rel="made_by")
+            country_nodes = await ctx.kg.neighbors(c.id, rel="from_country")
+            strength_nodes = await ctx.kg.neighbors(c.id, rel="has_strength")
+            pairing_nodes = await ctx.kg.harmonizations(c.id)
+            entries.append(
+                CatalogEntry(
+                    id=c.id,
+                    label=c.label,
+                    strength=strength_nodes[0].label if strength_nodes else None,
+                    brand=brand_nodes[0].label if brand_nodes else None,
+                    country=country_nodes[0].label if country_nodes else None,
+                    pairings=[p.label for p in pairing_nodes],
+                )
+            )
+        return entries
 
     @app.post("/bands/recognize")
     async def recognize(
