@@ -18,16 +18,18 @@ from evals import (
     cascade_efficiency,
     catalog_coverage,
     cost_per_interaction,
+    embedding_ann_quality,
 )
 from evals.harness import EvalReport
 
-# Registro de evals disponíveis (os 4 gates do Anexo C do MVP + cobertura do catálogo S8).
+# Registro de evals disponíveis (os 4 gates do Anexo C do MVP + gates S8/S10).
 EVALS: dict[str, Callable[[], Awaitable[EvalReport]]] = {
     "cascade_efficiency": cascade_efficiency.run,
     "band_recognition": band_recognition.run,
     "assistant_groundedness": assistant_groundedness.run,
     "cost_per_interaction": cost_per_interaction.run,
     "catalog_coverage": catalog_coverage.run,
+    "embedding_ann_quality": embedding_ann_quality.run,
 }
 
 

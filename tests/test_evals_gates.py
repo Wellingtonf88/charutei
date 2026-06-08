@@ -10,6 +10,7 @@ from evals import (
     cascade_efficiency,
     catalog_coverage,
     cost_per_interaction,
+    embedding_ann_quality,
 )
 
 _EVALS = [
@@ -18,6 +19,7 @@ _EVALS = [
     assistant_groundedness,
     cost_per_interaction,
     catalog_coverage,
+    embedding_ann_quality,
 ]
 
 
