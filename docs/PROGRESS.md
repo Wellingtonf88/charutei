@@ -16,6 +16,29 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
 | S6 | Mobile (Expo) + BFF | ✅ |
 | S7 | Evals & CI (gates) | ✅ |
 | S8 | Cigar Intelligence — ingestão de catálogo de SKU no KG | ✅ |
+| S9 | Adaptadores reais: Anthropic + Voyage + Gemini | ✅ |
+
+---
+
+## S9 — Adaptadores reais: Anthropic + Voyage + Gemini (✅)
+**Entregue:**
+- **`AnthropicLLMProvider`**: usa `anthropic.AsyncAnthropic` (lazy import). Mapeia IDs internos
+  (`haiku-4.5` / `sonnet-4.6` / `opus-4.8`) → IDs do SDK (`claude-haiku-4-5` / `claude-sonnet-4-6` /
+  `claude-opus-4-8`). Custo calculado via `LLM_PRICING`.
+- **`VoyageEmbeddingProvider`**: `voyageai.AsyncClient.embed()` (lazy import). Texto, `voyage-4-lite`.
+- **`VoyageImageEmbeddingProvider`**: `voyageai.AsyncClient.multimodal_embed()` (lazy import).
+  Multimodal, `voyage-multimodal-4`. Suporta base64, URL ou fallback para `visual_text`.
+- **`GeminiVisionProvider`**: `google.genai.Client` (lazy import). Mapeia `gemini-3-flash` →
+  `gemini-2.0-flash`. Prompt em português + inline_data para imagem (quando disponível).
+- **`build_providers(use_fake=False)`** → `AnthropicLLMProvider + VoyageEmbeddingProvider + build_tracer()`.
+- **`build_band_providers(use_fake=False)`** → `VoyageImageEmbeddingProvider + FakeOCRProvider + GeminiVisionProvider`.
+- `NotImplementedError` removido de ambas as fábricas.
+- **Testes de integração** (`services/orchestrator/tests/test_providers_integration.py`): 7 testes com
+  `pytest.mark.skipif` quando chaves ausentes — compatível com CI sem chaves.
+
+**Testes/evals:** ruff ✓ · mypy ✓ · **pytest 71 passed, 3 skipped** (sem regressão) · **5 gates PASS**.
+
+**Próxima slice:** S10 — Materializar embeddings reais (Voyage → pgvector) + eval `embedding_ann_quality`.
 
 ---
 
