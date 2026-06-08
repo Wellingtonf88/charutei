@@ -18,6 +18,32 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
 | S8 | Cigar Intelligence — ingestão de catálogo de SKU no KG | ✅ |
 | S9 | Adaptadores reais: Anthropic + Voyage + Gemini | ✅ |
 | S10 | Embeddings reais no pgvector + eval ANN | ✅ |
+| S11w | Frontend web (Next.js) para demo de investidores | ✅ |
+
+---
+
+## S11w — Frontend web: demo para investidores (✅)
+**Entregue:**
+- **BFF**: CORS liberado; `GET /catalog` expõe todos os charutos do KG (label, brand, country,
+  strength, pairings). `AppContext` agora carrega `kg: KnowledgeGraphRepo`.
+- **`apps/web/`** — Next.js 15 + Tailwind, proxy `/api/**` → BFF:
+  - **Scan** (landing): hero, 5 fixtures de demo, reconhecimento via `visual_text`, resultado com
+    confiança, tier (SMALL/MEDIUM/LARGE), custo USD, candidatos ranqueados, botão "Adicionar ao Humidor".
+  - **Humidor**: lista de coleção persistida na sessão BFF.
+  - **Catálogo**: grid com filtro por país/intensidade, badges de pairings, pontos de intensidade.
+
+**Para rodar localmente (demo):**
+```bash
+# Terminal 1 — BFF
+uv run --extra serve --package charutei-api uvicorn charutei_api.main:app --port 8000
+
+# Terminal 2 — Web
+cd apps/web && npm run dev   # → http://localhost:3001
+```
+
+**Testes/evals:** ruff ✓ · **pytest 72 passed, 10 skipped** · **6 gates PASS** (sem regressão).
+
+**Próxima slice:** S11 — `SupabaseAuthProvider.verify()` (JWT real) + S12 — validar Expo mobile.
 
 ---
 
