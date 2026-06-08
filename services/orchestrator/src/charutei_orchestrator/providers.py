@@ -227,22 +227,138 @@ class FakeVisionProvider:
         )
 
 
+# --------------------------------------------------- Real providers
+
+
+class AnthropicLLMProvider:
+    """Adaptador real Anthropic — anthropic.AsyncAnthropic (lazy import)."""
+
+    # Mapa entre IDs internos da cascata e IDs do SDK Anthropic.
+    _MODEL_IDS: dict[str, str] = {
+        "haiku-4.5": "claude-haiku-4-5",
+        "sonnet-4.6": "claude-sonnet-4-6",
+        "opus-4.8": "claude-opus-4-8",
+    }
+
+    def __init__(self, api_key: str | None = None) -> None:
+        self._api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
+
+    async def generate(
+        self, *, model: str, system: str, prompt: str, max_tokens: int = 512
+    ) -> LLMResponse:
+        import anthropic
+
+        client = anthropic.AsyncAnthropic(api_key=self._api_key)
+        api_model = self._MODEL_IDS.get(model, model)
+        msg = await client.messages.create(
+            model=api_model,
+            max_tokens=max_tokens,
+            system=system,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = "".join(b.text for b in msg.content if b.type == "text")
+        in_tok = msg.usage.input_tokens
+        out_tok = msg.usage.output_tokens
+        return LLMResponse(
+            text=text,
+            model=model,
+            input_tokens=in_tok,
+            output_tokens=out_tok,
+            cost_usd=llm_cost(model, in_tok, out_tok),
+        )
+
+
+class VoyageEmbeddingProvider:
+    """Adaptador real Voyage — texto, voyage-4-lite (lazy import voyageai)."""
+
+    def __init__(self, api_key: str | None = None) -> None:
+        self._api_key = api_key or os.environ.get("VOYAGE_API_KEY")
+
+    async def embed(self, texts: list[str], *, model: str = "voyage-4-lite") -> list[list[float]]:
+        import voyageai
+
+        client = voyageai.AsyncClient(api_key=self._api_key)
+        result = await client.embed(texts, model=model)
+        return result.embeddings
+
+
+class VoyageImageEmbeddingProvider:
+    """Adaptador real Voyage multimodal — voyage-multimodal-4 (lazy import voyageai)."""
+
+    def __init__(self, api_key: str | None = None) -> None:
+        self._api_key = api_key or os.environ.get("VOYAGE_API_KEY")
+
+    async def embed_image(
+        self, image: BandImage, *, model: str = "voyage-multimodal-4"
+    ) -> list[float]:
+        import voyageai
+
+        client = voyageai.AsyncClient(api_key=self._api_key)
+        if image.data_b64:
+            content = [{"type": "image_base64", "image_base64": image.data_b64}]
+        elif image.url:
+            content = [{"type": "image_url", "image_url": image.url}]
+        else:
+            content = [{"type": "text", "text": image.visual_text or image.ref}]
+        result = await client.multimodal_embed([content], model=model)
+        return result.embeddings[0]
+
+
+class GeminiVisionProvider:
+    """Adaptador real Gemini Flash — identificação de anilha via visão (lazy google.genai)."""
+
+    # Mapa entre ID interno e ID do modelo na API Google.
+    _MODEL_IDS: dict[str, str] = {
+        "gemini-3-flash": "gemini-2.0-flash",
+    }
+
+    def __init__(self, api_key: str | None = None) -> None:
+        self._api_key = api_key or os.environ.get("GEMINI_API_KEY")
+
+    async def identify(
+        self, image: BandImage, candidates: list[BandCandidate], *, model: str = "gemini-3-flash"
+    ) -> VisionResult:
+        from google import genai
+
+        client = genai.Client(api_key=self._api_key)
+        api_model = self._MODEL_IDS.get(model, model)
+        cand_lines = "\n".join(
+            f"- {c.cigar_id}: {c.label or c.cigar_id}" for c in candidates
+        )
+        prompt_text = (
+            "Você é um especialista em charutos. Analise a imagem desta anilha e identifique "
+            "qual charuto da lista abaixo é o mais provável. Responda APENAS com o cigar_id "
+            f"exato, sem explicação.\n\nCandidatos:\n{cand_lines}"
+            "\n\nResponda apenas com o cigar_id do candidato mais provável."
+        )
+        parts: list[dict] = [{"text": prompt_text}]
+        if image.data_b64:
+            parts.append(
+                {"inline_data": {"mime_type": "image/jpeg", "data": image.data_b64}}
+            )
+        response = await client.aio.models.generate_content(
+            model=api_model,
+            contents=[{"role": "user", "parts": parts}],
+        )
+        raw = (response.text or "").strip()
+        matched = next((c for c in candidates if c.cigar_id == raw), None)
+        return VisionResult(
+            cigar_id=matched.cigar_id if matched else None,
+            confidence=0.8 if matched else 0.0,
+            model=model,
+            cost_usd=vision_cost(model),
+        )
+
+
 def build_providers(
     use_fake: bool | None = None,
 ) -> tuple[LLMProvider, EmbeddingProvider, Tracer]:
-    """Fábrica única. Lê USE_FAKE_PROVIDERS quando `use_fake` não é passado.
-
-    Os provedores reais (Anthropic/Voyage/Langfuse) são ligados por slice; aqui falham com
-    mensagem clara se solicitados sem implementação, em vez de silenciosamente.
-    """
+    """Fábrica única. Lê USE_FAKE_PROVIDERS quando `use_fake` não é passado."""
     if use_fake is None:
         use_fake = os.environ.get("USE_FAKE_PROVIDERS", "true").lower() in {"1", "true", "yes"}
     if use_fake:
         return FakeLLMProvider(), FakeEmbeddingProvider(), FakeTracer()
-    raise NotImplementedError(
-        "Provedores reais (Anthropic/Voyage/Langfuse) ainda não ligados. "
-        "Mantenha USE_FAKE_PROVIDERS=true ou implemente o adaptador real na slice correspondente."
-    )
+    return AnthropicLLMProvider(), VoyageEmbeddingProvider(), build_tracer()
 
 
 def build_tracer() -> Tracer:
@@ -269,6 +385,4 @@ def build_band_providers(
         use_fake = os.environ.get("USE_FAKE_PROVIDERS", "true").lower() in {"1", "true", "yes"}
     if use_fake:
         return FakeImageEmbeddingProvider(), FakeOCRProvider(), FakeVisionProvider()
-    raise NotImplementedError(
-        "Provedores de visão reais (Voyage multimodal / OCR / Gemini Flash) ainda não ligados."
-    )
+    return VoyageImageEmbeddingProvider(), FakeOCRProvider(), GeminiVisionProvider()
