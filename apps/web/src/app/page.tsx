@@ -145,7 +145,7 @@ export default function ScanPage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 text-center">
         {[
-          { value: "117", label: "Charutos catalogados" },
+          { value: "410+", label: "Charutos catalogados" },
           { value: "≥ 90%", label: "Acurácia band recognition" },
           { value: "$0.00", label: "Custo médio / identificação" },
         ].map((s) => (

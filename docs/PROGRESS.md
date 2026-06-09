@@ -292,3 +292,19 @@ só por gatilho de escala.
 Instrumentadas via `Tracer` (Langfuse na produção). Assistente no dataset de eval: **100% sem Opus**,
 custo médio **$0.00018/msg**, **groundedness 100%**, 64% no degrau determinístico (KG) e 36% RAG/Sonnet.
 Band Recognition: acurácia 100%, 90% sem visão.
+
+## Expansão do catálogo — C2GO OffCuba (2026-06-09)
+**Fonte:** PDF "Charutos 2GO OffCuba 05.05.26" — ~700 SKUs de charutos premium não-cubanos.
+
+**Entregue:**
+- `scripts/parse_c2go_catalog.py`: parser com mapeamentos de marca → país e keywords de capa → intensidade.
+  Dedup idempotente por slug contra entradas existentes.
+- `data/catalog/cigars.csv`: **+301 novas entradas** · total **410 SKUs**.
+  Marcas cobertas: A. Fuente, AJ Fernandez, Alec Bradley, Avo, Brick House, Buena Vista, CAO, Davidoff,
+  Diamond Crown, Don Diego, Don Emmanuel, Drew Estate, EP Carrillo, Espinosa, Flor de Copan, Flor de Oliva,
+  Fratello, Gurkha, Joya de Nicaragua, La Aurora, Luis Martinez, Macanudo, My Father, Mombacho, Montosa,
+  NUB, Oliva, Parcero Brasil, Perla del Mar, Quorum, Reposado, Dunbarton T&T (Steve Saka), Vegafina.
+
+**Ingestão (in-memory):** `32 (seed) → 417` · `created=385, updated=25, unchanged=0, conflicts=0` · HITL: 0.
+
+**Gates (sem regressão):** 6 gates PASS · pytest 72 passed, 10 skipped.
