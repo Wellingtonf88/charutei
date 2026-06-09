@@ -46,11 +46,18 @@ function headers(extra?: Record<string, string>): Record<string, string> {
   };
 }
 
-export async function recognizeBand(visualText: string): Promise<RecognitionResult> {
+export async function recognizeBand(
+  visualText: string,
+  dataB64?: string,
+): Promise<RecognitionResult> {
   const res = await fetch(`${BASE}/bands/recognize`, {
     method: "POST",
     headers: headers(),
-    body: JSON.stringify({ ref: `web-${Date.now()}`, visual_text: visualText }),
+    body: JSON.stringify({
+      ref: `web-${Date.now()}`,
+      visual_text: visualText,
+      ...(dataB64 ? { data_b64: dataB64 } : {}),
+    }),
   });
   if (!res.ok) throw new Error(`recognize: ${res.status}`);
   return res.json() as Promise<RecognitionResult>;

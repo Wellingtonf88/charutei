@@ -6,12 +6,13 @@ from pydantic import BaseModel, Field
 
 
 class RecognizeRequest(BaseModel):
-    """Captura de anilha. Em produção, a imagem é enviada (multipart) e o embedding vem do
-    Voyage multimodal; `visual_text`/`ocr_text` são o atalho determinístico do MVP."""
+    """Captura de anilha. `data_b64` aceita imagem JPEG/PNG em base64 (providers reais);
+    `visual_text`/`ocr_text` são o atalho determinístico (demo/CI)."""
 
     ref: str
     visual_text: str = ""
     ocr_text: str | None = None
+    data_b64: str | None = None  # base64 da imagem — usado pelos providers reais
 
 
 class AddItemRequest(BaseModel):

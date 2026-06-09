@@ -69,7 +69,12 @@ def create_app(ctx: AppContext) -> FastAPI:
         req: RecognizeRequest, user: AuthUser = Depends(current_user)
     ) -> BandRecognitionResult:
         result = await ctx.band_agent.recognize(
-            BandImage(ref=req.ref, visual_text=req.visual_text, ocr_text=req.ocr_text)
+            BandImage(
+                ref=req.ref,
+                visual_text=req.visual_text,
+                ocr_text=req.ocr_text,
+                data_b64=req.data_b64,
+            )
         )
         await ctx.oltp.save_band(
             Band(
