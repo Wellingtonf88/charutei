@@ -5,6 +5,7 @@ Garante que uma regressão que derrube um gate falhe o `pytest`, não só o job 
 
 import pytest
 from evals import (
+    agentic_loop_groundedness,
     assistant_groundedness,
     band_recognition,
     cascade_efficiency,
@@ -20,6 +21,7 @@ _EVALS = [
     cost_per_interaction,
     catalog_coverage,
     embedding_ann_quality,
+    agentic_loop_groundedness,
 ]
 
 

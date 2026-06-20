@@ -8,16 +8,17 @@ from __future__ import annotations
 
 import uuid
 
-from charutei_contracts import BandImage, BandRecognitionResult
+from charutei_contracts import BandImage, BandRecognitionResult, CascadeResult
 from charutei_events import EventType
 from charutei_events.models import Event
 from charutei_knowledge import Band, Collection, CollectionItem, NodeType, User
+from charutei_orchestrator import RequestKind
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from charutei_api.auth import AuthUser
 from charutei_api.context import AppContext
-from charutei_api.schemas import AddItemRequest, CatalogEntry, RecognizeRequest
+from charutei_api.schemas import AddItemRequest, AskRequest, CatalogEntry, RecognizeRequest
 
 
 def create_app(ctx: AppContext) -> FastAPI:
@@ -68,13 +69,14 @@ def create_app(ctx: AppContext) -> FastAPI:
     async def recognize(
         req: RecognizeRequest, user: AuthUser = Depends(current_user)
     ) -> BandRecognitionResult:
-        result = await ctx.band_agent.recognize(
+        result: BandRecognitionResult = await ctx.supervisor.dispatch(
+            RequestKind.BAND_IMAGE,
             BandImage(
                 ref=req.ref,
                 visual_text=req.visual_text,
                 ocr_text=req.ocr_text,
                 data_b64=req.data_b64,
-            )
+            ),
         )
         await ctx.oltp.save_band(
             Band(
@@ -92,6 +94,13 @@ def create_app(ctx: AppContext) -> FastAPI:
                 payload={"user_id": user.id, "ref": req.ref, "cigar_id": result.cigar_id or ""},
             )
         )
+        return result
+
+    @app.post("/ask")
+    async def ask(
+        req: AskRequest, user: AuthUser = Depends(current_user)
+    ) -> CascadeResult:
+        result: CascadeResult = await ctx.supervisor.dispatch(RequestKind.ASSISTANT_TEXT, req.q)
         return result
 
     @app.post("/collection/items")

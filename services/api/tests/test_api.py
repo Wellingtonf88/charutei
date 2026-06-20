@@ -46,6 +46,23 @@ async def test_recognize_returns_cigar(client_ctx) -> None:  # type: ignore[no-u
     assert ctx.outbox._pending  # noqa: SLF001 — inspeção de teste
 
 
+async def test_ask_requires_auth(client_ctx) -> None:  # type: ignore[no-untyped-def]
+    client, _ = client_ctx
+    r = await client.post("/ask", json={"q": "Com o que harmoniza o Cohiba Robustos?"})
+    assert r.status_code == 401
+
+
+async def test_ask_returns_grounded_answer(client_ctx) -> None:  # type: ignore[no-untyped-def]
+    client, _ = client_ctx
+    r = await client.post(
+        "/ask", json={"q": "Com o que harmoniza o Cohiba Robustos?"}, headers=_AUTH
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["answer"]
+    assert body["citations"]  # resposta ancorada (KG, degrau determinístico)
+
+
 async def test_add_to_collection_and_list(client_ctx) -> None:  # type: ignore[no-untyped-def]
     client, _ = client_ctx
     r = await client.post(

@@ -1,5 +1,15 @@
 """Orchestrator do CHARUTEI: Router, Registry, Governance e cascata de inteligência."""
 
+from charutei_orchestrator.agent_loop import (
+    AgentRunResult,
+    AgentTool,
+    AnthropicToolRunner,
+    FakeToolRunner,
+    ToolCallTrace,
+    ToolResult,
+    ToolRunner,
+    build_tool_runner,
+)
 from charutei_orchestrator.cascade import (
     Cascade,
     DeterministicResolver,
@@ -8,6 +18,13 @@ from charutei_orchestrator.cascade import (
     KgVersionFn,
 )
 from charutei_orchestrator.governance import EscalationDecision, Governance, GovernanceError
+from charutei_orchestrator.mcp_tools import (
+    CigarTools,
+    DocRetriever,
+    RetrievedDoc,
+    build_cigar_tools,
+    build_mcp_server,
+)
 from charutei_orchestrator.metrics import CascadeMetrics, cascade_metrics
 from charutei_orchestrator.providers import (
     EmbeddingProvider,
@@ -33,6 +50,7 @@ from charutei_orchestrator.providers import (
 )
 from charutei_orchestrator.registry import TIER_MODELS, AgentRegistry, AgentSpec
 from charutei_orchestrator.router import Intent, RouteDecision, classify
+from charutei_orchestrator.supervisor import AgentHandler, RequestKind, Supervisor
 
 __all__ = [
     "Cascade",
@@ -71,4 +89,20 @@ __all__ = [
     "build_band_providers",
     "build_tracer",
     "vision_cost",
+    "AgentTool",
+    "AgentRunResult",
+    "ToolCallTrace",
+    "ToolResult",
+    "ToolRunner",
+    "FakeToolRunner",
+    "AnthropicToolRunner",
+    "build_tool_runner",
+    "CigarTools",
+    "DocRetriever",
+    "RetrievedDoc",
+    "build_cigar_tools",
+    "build_mcp_server",
+    "Supervisor",
+    "RequestKind",
+    "AgentHandler",
 ]

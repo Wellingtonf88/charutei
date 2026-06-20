@@ -13,6 +13,7 @@ import sys
 from collections.abc import Awaitable, Callable
 
 from evals import (
+    agentic_loop_groundedness,
     assistant_groundedness,
     band_recognition,
     cascade_efficiency,
@@ -22,7 +23,7 @@ from evals import (
 )
 from evals.harness import EvalReport
 
-# Registro de evals disponíveis (os 4 gates do Anexo C do MVP + gates S8/S10).
+# Registro de evals disponíveis (gates do Anexo C + S8/S10 + S16 laço agêntico).
 EVALS: dict[str, Callable[[], Awaitable[EvalReport]]] = {
     "cascade_efficiency": cascade_efficiency.run,
     "band_recognition": band_recognition.run,
@@ -30,6 +31,7 @@ EVALS: dict[str, Callable[[], Awaitable[EvalReport]]] = {
     "cost_per_interaction": cost_per_interaction.run,
     "catalog_coverage": catalog_coverage.run,
     "embedding_ann_quality": embedding_ann_quality.run,
+    "agentic_loop_groundedness": agentic_loop_groundedness.run,
 }
 
 

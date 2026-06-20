@@ -28,6 +28,7 @@ class AgentSpec(BaseModel):
     token_budget: int = Field(default=4000, gt=0)
     allow_opus_gating: bool = False  # só True habilita o degrau LARGE (ainda sob confiança)
     allow_vision_fallback: bool = False  # habilita LLM de visão (Gemini Flash) no Band Recognition
+    allow_agentic_loop: bool = False  # habilita o laço agêntico (tool-use) no degrau Opus gated
     enabled: bool = True  # kill-switch por agente
 
 

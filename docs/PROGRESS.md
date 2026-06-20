@@ -19,6 +19,115 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
 | S9 | Adaptadores reais: Anthropic + Voyage + Gemini | ✅ |
 | S10 | Embeddings reais no pgvector + eval ANN | ✅ |
 | S11w | Frontend web (Next.js) para demo de investidores | ✅ |
+| S13 | Multi-agêntico — fundação do laço agêntico (tool-use) | ✅ |
+| S14 | Multi-agêntico — ferramentas MCP + AnthropicToolRunner real | ✅ |
+| S15 | Multi-agêntico — Supervisor (roteador determinístico) + gating | ✅ |
+| S16 | Multi-agêntico — laço ligado no Assistant + /ask + eval | ✅ |
+
+---
+
+## S16 — Multi-agêntico: laço ligado no Assistant (✅) — refatoração concluída
+**Entregue:**
+- **Assistant** ([assistant.py](services/agents/assistant/src/charutei_assistant/assistant.py)):
+  `default_spec` agora com `allow_agentic_loop=True`. Quando habilitado, monta `CigarTools(kg,
+  _DocStoreRetriever)` + `build_cigar_tools` e injeta o `tool_runner` na `Cascade` —
+  `FakeToolRunner` em CI/dev, `AnthropicToolRunner(build_mcp_server(...))` com providers reais.
+  `_DocStoreRetriever` adapta o `DocumentStore` ao Protocol `DocRetriever` (RAG → `rag_search`).
+  O laço só dispara no degrau Opus gated (cache/KG/RAG inalterados).
+- **BFF**: `Assistant` montado no `AppContext` (registry/governance compartilhados com o Supervisor),
+  registrado como handler `assistant`; novo **`POST /ask`** despacha via
+  `supervisor.dispatch(RequestKind.ASSISTANT_TEXT, q)`. `api` passa a depender de `charutei-assistant`.
+- **Eval `agentic_loop_groundedness`** (7º gate): cenário forçado de escalada → laço ancora 100%
+  das respostas (3/3) com citações + custo; registrado no CLI e no pytest dos gates.
+- **CLAUDE.md** atualizado: stack de agentes reflete a realidade (Supervisor + tool runner
+  `anthropic` + MCP in-process; LangGraph = swap de escala).
+
+**Testes/evals:** ruff ✓ · mypy ✓ · **pytest 91 passed, 11 skipped** (+2 BFF `/ask`) ·
+**7 gates PASS** (sem regressão: `cascade_efficiency` segue 100% sem Opus, $0.00018/msg).
+
+**Resultado:** CHARUTEI agora é **multi-agêntico** (Supervisor + especialistas) com laço de tool-use
+real (Opus + MCP) **gated no topo da cascata** — "LLM é o último recurso" preservado e provado por
+teste de invariante (loop nunca roda em cache/KG/RAG) + gate de groundedness do laço.
+
+**Próximas (fora desta refatoração):** S11 `SupabaseAuthProvider.verify()` (JWT) · S12 validar Expo ·
+ligar `AnthropicToolRunner` real com chave em staging.
+
+---
+
+## S15 — Multi-agêntico: Supervisor + gating do laço (✅)
+**Entregue:**
+- **`AgentSpec.allow_agentic_loop`** (default `False`): gating por capability de quem pode usar o
+  laço agêntico — só `assistant` ligará na S16.
+- **`supervisor.py`**: `Supervisor` (roteador **determinístico, sem LLM**) + `RequestKind`
+  (`BAND_IMAGE`/`ASSISTANT_TEXT`/`CATALOG_INGEST`). `route(kind)` resolve a capability no
+  `AgentRegistry` e aplica o **kill-switch** (`GovernanceError` se desabilitada); `dispatch(kind,
+  payload)` chama o handler do especialista. O tipo de payload desambigua o agente; a
+  classificação fina de intenção continua em `router.classify` na cascata (sem duplicação).
+- **Refactor do BFF**: `AppContext` monta um `Supervisor` e registra `band_recognition →
+  band_agent.recognize`; `POST /bands/recognize` agora despacha via `ctx.supervisor.dispatch(
+  RequestKind.BAND_IMAGE, ...)` — wiring centralizado, handlers desacoplados dos agentes.
+
+**Testes/evals:** ruff ✓ · mypy ✓ · **pytest 88 passed, 11 skipped** (+6) · **6 gates PASS**
+(sem regressão; BFF segue reconhecendo anilha via Supervisor).
+
+**Próxima slice:** S16 — ligar o laço no Assistant (`build_cigar_tools` + `build_mcp_server`/
+`FakeToolRunner` na `Cascade`, gated por `allow_agentic_loop`), `/ask` no BFF + eval
+`agentic_loop_groundedness`, e atualizar o CLAUDE.md (LangGraph→tool runner Anthropic+MCP).
+
+---
+
+## S14 — Multi-agêntico: ferramentas MCP + runner real (✅)
+**Entregue:**
+- **`mcp_tools.py`**: `CigarTools` (fonte única, determinística, **sem LLM**) com 4 ferramentas
+  read-only envolvendo KG/RAG — `kg_query`, `harmonize`, `compare`, `rag_search`; todas devolvem
+  `ToolResult` **com citações**. `DocRetriever` (Protocol) evita o Orchestrator importar o pacote
+  `assistant` (direção de dependência correta — RAG entra por injeção na S16).
+- **`build_cigar_tools()`** → `list[AgentTool]` (caminho `FakeToolRunner`, CI) ·
+  **`build_mcp_server()`** → servidor MCP in-process (FastMCP), mesma lógica exposta como tools MCP.
+- **`AnthropicToolRunner`** (laço manual: controle de FinOps — soma `usage` por iteração + extrai
+  citações de cada `tool_result`): Opus orquestra as tools via sessão MCP **in-memory** (sem rede,
+  sem subprocess). `anthropic`/`mcp` lazy-import (extra `providers`). `opus-4.8` + thinking adaptive
+  + effort high.
+- Deps: `anthropic[mcp]>=0.40` + `mcp>=1.0` no extra `providers`.
+
+**Verificação:** a **camada MCP é local** → testada sem chave (servidor sobe, lista 4 tools, executa
+`call_tool` e devolve `ToolResult` serializado com citação). Só o loop Opus end-to-end exige chave
+(`skipif` — padrão da S9). No CI sem o extra `providers`, o teste da camada MCP é pulado via
+`importorskip("mcp")` — hermético.
+
+**Testes/evals:** ruff ✓ · mypy ✓ (arquivos novos `agent_loop.py`/`mcp_tools.py`) ·
+**pytest 82 passed, 11 skipped** (+6) · **6 gates PASS** (sem regressão).
+**Nota:** com o extra `providers` instalado, o mypy expõe 8 erros **pré-existentes da S9**
+(`providers.py` Voyage/Gemini) — mascarados no CI por `ignore_missing_imports`; fora do escopo da S14.
+
+**Próxima slice:** S15 — `Supervisor` (roteador determinístico de agentes) + `AgentSpec.allow_agentic_loop`
++ refactor do `AppContext` para despachar via Supervisor.
+
+---
+
+## S13 — Multi-agêntico: fundação do laço agêntico (✅)
+**Contexto:** início da refatoração para arquitetura multi-agêntica (Supervisor + especialistas,
+**loop só no topo**), via tool runner do SDK `anthropic` + MCP — preservando "LLM é o último recurso".
+Plano completo das slices S13–S16 aprovado.
+
+**Entregue:**
+- **`agent_loop.py`**: interface `ToolRunner` (Protocol) + `AgentTool` (ferramenta read-only
+  determinística, sem LLM) + `AgentRunResult`/`ToolCallTrace`/`ToolResult` + `FakeToolRunner`
+  (loop determinístico para CI: invoca cada ferramenta, agrega trechos, cita as fontes; tokens/custo
+  reais por modelo). `build_tool_runner(use_fake)` simétrico a `build_providers` (real entra na S14).
+- **`Cascade`**: `tool_runner`/`tools` opcionais (`None` ⇒ comportamento atual byte-a-byte). O loop
+  roda **apenas no ramo de escalada Opus gated** de `_generate`; cada ferramenta vira `TraceRecord`
+  filho (`tool:<name>`) sob o mesmo `trace_id`. Degraus 1–4 inalterados.
+- Exports no `__init__`.
+
+**Invariante de custo (testado):** o loop **nunca** é invocado quando cache/KG/RAG resolvem
+(espião `_SpyToolRunner` ⇒ `calls==0` no degrau determinístico; `calls==1` só na escalada Opus).
+
+**Testes/evals:** ruff ✓ · mypy ✓ (arquivos novos) · **pytest 76 passed, 10 skipped** (+4 testes) ·
+**6 gates PASS** (sem regressão; loop não roda no dataset de eval, distribuição inalterada).
+
+**Próxima slice:** S14 — `mcp_tools.py` (kg_query/rag_search/harmonize/compare envolvendo KG/RAG)
++ `AnthropicToolRunner` real (tool runner + MCP, `skipif` sem chave).
 
 ---
 
