@@ -23,6 +23,36 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
 | S14 | Multi-agêntico — ferramentas MCP + AnthropicToolRunner real | ✅ |
 | S15 | Multi-agêntico — Supervisor (roteador determinístico) + gating | ✅ |
 | S16 | Multi-agêntico — laço ligado no Assistant + /ask + eval | ✅ |
+| S11 | Auth real — SupabaseAuthProvider (JWT HS256) | ✅ |
+
+---
+
+## Manutenção — tipos da S9 (Voyage/Gemini) resolvidos (✅)
+Os 6 erros de mypy que surgiam **com o extra `providers` instalado** (SDKs Voyage/Gemini com
+tipagem incompleta no boundary) foram eliminados sem `# type: ignore` (que `strict` +
+`warn_unused_ignores` quebrariam no CI sem o extra):
+- correção real nossa: `parts: list[dict]` → `list[dict[str, Any]]`; coerção explícita dos
+  embeddings para `list[list[float]]`/`list[float]` (evita `no-any-return`);
+- override de mypy `follow_imports = "skip"` para `voyageai.*`/`google.genai.*` (boundary de
+  terceiros tratado como `Any`; inerte quando o extra não está instalado).
+- Resultado: `uv run mypy packages services` limpo **com e sem** o extra `providers`.
+
+## S11 — Auth real: SupabaseAuthProvider (JWT HS256) (✅)
+**Entregue:**
+- **`SupabaseAuthProvider.verify()`** ([auth.py](services/api/src/charutei_api/auth.py)): valida o
+  access token do Supabase em **HS256** com o JWT secret do projeto (`pyjwt` lazy-import). Exige
+  `sub`+`exp`, confere `aud` (default `authenticated`) e expiração; retorna `AuthUser(id=sub,
+  email)` ou `None` (assinatura inválida/expirado/aud divergente/claim ausente).
+- **`build_auth_provider()`**: liga o real por env (`SUPABASE_JWT_SECRET`, `SUPABASE_JWT_AUD`) —
+  senão `FakeAuthProvider` (dev/CI). Espelha `build_providers`. `AppContext` passa a usá-lo.
+- Dep `pyjwt>=2.8` no pacote `api`.
+
+**Testes/evals:** ruff ✓ · mypy ✓ · **pytest 98 passed, 11 skipped** (+7 auth; `importorskip("jwt")`
+mantém hermético) · **7 gates PASS**. Cobre token válido, vazio, assinatura inválida, expirado,
+audience errada, `sub` ausente, e a seleção da fábrica por env.
+
+**Próximas:** S12 (validar Expo em simulador) · ligar `AnthropicToolRunner` real em staging (chave) ·
+resolver os 8 typings pré-existentes da S9.
 
 ---
 
