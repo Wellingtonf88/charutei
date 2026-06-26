@@ -29,7 +29,7 @@ from charutei_orchestrator import (
     build_providers,
 )
 
-from charutei_api.auth import AuthProvider, FakeAuthProvider
+from charutei_api.auth import AuthProvider, build_auth_provider
 
 
 @dataclass
@@ -91,7 +91,7 @@ async def build_context(auth: AuthProvider | None = None) -> AppContext:
         assistant=assistant,
         oltp=InMemoryOltp(),
         outbox=InMemoryOutbox(),
-        auth=auth or FakeAuthProvider(),
+        auth=auth or build_auth_provider(),
         kg=kg,
         supervisor=supervisor,
     )

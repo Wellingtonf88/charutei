@@ -6,6 +6,7 @@ para testes — sem exigir chaves. O adaptador Supabase real valida o JWT e é l
 
 from __future__ import annotations
 
+import os
 from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel
@@ -34,13 +35,47 @@ class FakeAuthProvider:
 
 
 class SupabaseAuthProvider:
-    """Adaptador real (placeholder). Valida o JWT do Supabase — ligado quando houver chaves."""
+    """Adaptador real: valida o JWT do Supabase Auth (HS256, segredo do projeto).
 
-    def __init__(self, jwt_secret: str) -> None:
+    Supabase assina o access token em HS256 com o JWT secret do projeto; os claims trazem
+    `sub` (id do usuário), `email` e `aud` (por padrão "authenticated"). `pyjwt` é lazy-import
+    (mesmo padrão dos providers): o módulo importa sem a lib; ela só é exigida ao validar.
+    """
+
+    def __init__(self, jwt_secret: str, *, audience: str = "authenticated") -> None:
         self._secret = jwt_secret
+        self._audience = audience
 
-    async def verify(self, token: str) -> AuthUser | None:  # pragma: no cover - sem chaves no MVP
-        raise NotImplementedError(
-            "SupabaseAuthProvider ainda não implementado. Use FakeAuthProvider (dev) "
-            "ou ligue a validação de JWT do Supabase quando as chaves estiverem disponíveis."
-        )
+    async def verify(self, token: str) -> AuthUser | None:
+        token = token.strip()
+        if not token:
+            return None
+        import jwt  # pyjwt — lazy
+
+        try:
+            claims = jwt.decode(
+                token,
+                self._secret,
+                algorithms=["HS256"],
+                audience=self._audience,
+                options={"require": ["sub", "exp"]},
+            )
+        except jwt.PyJWTError:
+            return None  # assinatura inválida, expirado, aud divergente, claim ausente
+
+        sub = claims.get("sub")
+        if not sub:
+            return None
+        return AuthUser(id=str(sub), email=str(claims.get("email", "")))
+
+
+def build_auth_provider() -> AuthProvider:
+    """Fábrica: SupabaseAuthProvider quando há SUPABASE_JWT_SECRET no ambiente; senão Fake.
+
+    Espelha `build_providers` — o real liga por env, sem exigir chave em dev/CI.
+    """
+    secret = os.environ.get("SUPABASE_JWT_SECRET")
+    if secret:
+        audience = os.environ.get("SUPABASE_JWT_AUD", "authenticated")
+        return SupabaseAuthProvider(secret, audience=audience)
+    return FakeAuthProvider()
