@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import math
 import os
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from charutei_contracts import BandCandidate, BandImage
 from pydantic import BaseModel, Field
@@ -279,7 +279,8 @@ class VoyageEmbeddingProvider:
 
         client = voyageai.AsyncClient(api_key=self._api_key)
         result = await client.embed(texts, model=model)
-        return result.embeddings
+        # Coerção explícita p/ list[list[float]] (a API pode tipar como float|int).
+        return [[float(x) for x in vec] for vec in result.embeddings]
 
 
 class VoyageImageEmbeddingProvider:
@@ -301,7 +302,7 @@ class VoyageImageEmbeddingProvider:
         else:
             content = [{"type": "text", "text": image.visual_text or image.ref}]
         result = await client.multimodal_embed([content], model=model)
-        return result.embeddings[0]
+        return [float(x) for x in result.embeddings[0]]
 
 
 class GeminiVisionProvider:
@@ -331,7 +332,7 @@ class GeminiVisionProvider:
             f"exato, sem explicação.\n\nCandidatos:\n{cand_lines}"
             "\n\nResponda apenas com o cigar_id do candidato mais provável."
         )
-        parts: list[dict] = [{"text": prompt_text}]
+        parts: list[dict[str, Any]] = [{"text": prompt_text}]
         if image.data_b64:
             parts.append(
                 {"inline_data": {"mime_type": "image/jpeg", "data": image.data_b64}}

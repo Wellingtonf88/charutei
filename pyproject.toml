@@ -83,6 +83,13 @@ ignore_missing_imports = true
 # e basenames de teste repetidos entre pacotes colidem no resolvedor do mypy.
 exclude = ["migrations/", "/tests/"]
 
+# SDKs externos com tipagem incompleta no boundary (Voyage/Gemini): tratados como Any para
+# não vazar erros de stubs de terceiros. Robusto nos dois ambientes (com/sem o extra
+# `providers`); a correção real do uso vive nos adaptadores + testes de integração (skipif).
+[[tool.mypy.overrides]]
+module = ["voyageai", "voyageai.*", "google.genai", "google.genai.*"]
+follow_imports = "skip"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
