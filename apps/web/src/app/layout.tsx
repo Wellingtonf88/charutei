@@ -25,6 +25,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 Identificar
               </Link>
               <Link
+                href="/ask"
+                className="text-zinc-400 hover:text-amber-400 transition-colors"
+              >
+                Assistente
+              </Link>
+              <Link
                 href="/humidor"
                 className="text-zinc-400 hover:text-amber-400 transition-colors"
               >
@@ -41,7 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </header>
         <main className="max-w-5xl mx-auto px-4 py-10">{children}</main>
         <footer className="border-t border-zinc-800 mt-20 py-6 text-center text-xs text-zinc-600">
-          CHARUTEI MVP &middot; 117 charutos &middot; cascata cost-aware &middot;{" "}
+          CHARUTEI MVP &middot; 410 charutos &middot; cascata cost-aware &middot;{" "}
           <span className="text-amber-700">LLM é o último recurso</span>
         </footer>
       </body>

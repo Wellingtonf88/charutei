@@ -88,6 +88,25 @@ export async function getCatalog(): Promise<CatalogEntry[]> {
   return res.json() as Promise<CatalogEntry[]>;
 }
 
+export type Citation = { source_id: string; title: string | null; snippet: string | null };
+export type AskResult = {
+  answer: string | null;
+  tier_resolved: number;
+  cost_usd: number;
+  citations: Citation[];
+  needs_human: boolean;
+};
+
+export async function ask(q: string): Promise<AskResult> {
+  const res = await fetch(`${BASE}/ask`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ q }),
+  });
+  if (!res.ok) throw new Error(`ask: ${res.status}`);
+  return res.json() as Promise<AskResult>;
+}
+
 // Slug → label amigável ("cigar:cohiba-siglo-vi" → "Cohiba Siglo Vi")
 export function cigarLabel(id: string): string {
   return id

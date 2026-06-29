@@ -27,6 +27,32 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
 
 ---
 
+## S17 — Mockup demo-ready (BFF rico + UI do Assistente) (✅)
+**Contexto:** validação do mockup apontou 3 lacunas P0 — o BFF servia só 32 charutos (seed) e
+RAG vazio (perguntas gerais escalavam ao laço Opus sem fonte), e o web não expunha o `/ask`.
+
+**Entregue:**
+- **BFF** ([context.py](services/api/src/charutei_api/context.py)): no `build_context`, ingere o
+  **catálogo completo** via `CigarIntelligence` (`parse_catalog_csv` + `CatalogIngestor`) → **417
+  SKUs** no KG; e **indexa o corpus** `data/docs/cigar_docs.json` no `DocumentStore` (RAG ancorado).
+  Ambos best-effort (guardados por `.exists()`; `CHARUTEI_DATA_DIR` sobrescreve o caminho). Deps
+  `charutei-cigar-intelligence` no `api`; corpus copiado p/ `data/docs/`.
+- **Web** ([apps/web](apps/web/)): `ask()` no `api.ts`; nova página **`/ask`** mostrando o **degrau
+  da cascata** que resolveu (KG/RAG/Opus) + custo + citações, com perguntas-exemplo clicáveis. Link
+  "Assistente" na nav; footer 117→410.
+
+**Validação ao vivo (USE_FAKE_PROVIDERS):** catálogo **417 SKUs** · `/ask` "armazenar humidor" →
+**tier 4 (RAG) ancorado** com 3 citações (antes: tier 5 "sem fonte") · `/ask` harmonização → tier 2
+(KG). Web: `tsc --noEmit` ✓.
+
+**Testes/evals:** ruff ✓ · mypy ✓ · **pytest 98 passed, 11 skipped** · **7 gates PASS** (sem regressão).
+
+**Fronteiras restantes (P1):** prosa gerada é placeholder sem `ANTHROPIC_API_KEY` (KG dá respostas
+reais); deploy (Vercel + BFF hospedado); match de label exato no KG (charuto com nome não-exato cai
+no RAG). Mobile Expo segue dependente de simulador.
+
+---
+
 ## Manutenção — tipos da S9 (Voyage/Gemini) resolvidos (✅)
 Os 6 erros de mypy que surgiam **com o extra `providers` instalado** (SDKs Voyage/Gemini com
 tipagem incompleta no boundary) foram eliminados sem `# type: ignore` (que `strict` +
