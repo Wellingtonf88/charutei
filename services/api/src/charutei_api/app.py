@@ -20,10 +20,13 @@ from charutei_knowledge import Band, Collection, CollectionItem, NodeType, User
 from charutei_orchestrator import RequestKind
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import RequestResponseEndpoint
 
 from charutei_api.auth import AuthUser
 from charutei_api.context import AppContext, build_context
 from charutei_api.schemas import AddItemRequest, AskRequest, CatalogEntry, RecognizeRequest
+from charutei_api.security import SlidingWindowRateLimiter, cors_origins, rate_limit_config
 
 
 def create_app(ctx: AppContext | None = None) -> FastAPI:
@@ -42,9 +45,28 @@ def create_app(ctx: AppContext | None = None) -> FastAPI:
 
     app = FastAPI(title="CHARUTEI BFF", version="0.0.0", lifespan=lifespan)
     app.state.ctx = ctx  # síncrono: testes passam contexto pronto (ASGITransport não roda lifespan)
+
+    # Rate limiting (janela deslizante por cliente) — 1ª camada anti-abuso; /healthz isento.
+    limiter = SlidingWindowRateLimiter(*rate_limit_config())
+
+    @app.middleware("http")
+    async def rate_limit(request: Request, call_next: RequestResponseEndpoint):  # type: ignore[no-untyped-def]
+        if limiter.enabled and request.url.path != "/healthz":
+            # Chave por token (se autenticado) ou IP do cliente.
+            auth = request.headers.get("authorization", "")
+            key = auth or (request.client.host if request.client else "anon")
+            if not limiter.allow(key):
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "rate limit excedido"},
+                    headers={"Retry-After": str(limiter.retry_after(key))},
+                )
+        return await call_next(request)
+
+    # CORS: origens explícitas por env (nunca `*`) — ver security.cors_origins().
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # demo — restringir em produção
+        allow_origins=cors_origins(),
         allow_methods=["*"],
         allow_headers=["*"],
     )

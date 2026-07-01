@@ -72,10 +72,17 @@ class SupabaseAuthProvider:
 def build_auth_provider() -> AuthProvider:
     """Fábrica: SupabaseAuthProvider quando há SUPABASE_JWT_SECRET no ambiente; senão Fake.
 
-    Espelha `build_providers` — o real liga por env, sem exigir chave em dev/CI.
+    Espelha `build_providers` — o real liga por env, sem exigir chave em dev/CI. **Guard de
+    produção**: com `CHARUTEI_ENV=production` sem `SUPABASE_JWT_SECRET`, recusa subir (fail-fast)
+    em vez de aceitar qualquer token via FakeAuthProvider.
     """
     secret = os.environ.get("SUPABASE_JWT_SECRET")
     if secret:
         audience = os.environ.get("SUPABASE_JWT_AUD", "authenticated")
         return SupabaseAuthProvider(secret, audience=audience)
+    if os.environ.get("CHARUTEI_ENV", "").lower() == "production":
+        raise RuntimeError(
+            "CHARUTEI_ENV=production exige SUPABASE_JWT_SECRET — "
+            "recusando FakeAuthProvider (aceitaria qualquer token)."
+        )
     return FakeAuthProvider()

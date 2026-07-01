@@ -27,6 +27,26 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
 
 ---
 
+## S19 — Endurecimento de segurança do BFF (P1) (✅)
+**Contexto:** auditoria apontou `allow_origins=["*"]` e `FakeAuthProvider` por default como riscos
+de produção. Fechados, mantendo dev/CI sem fricção.
+
+**Entregue** ([security.py](services/api/src/charutei_api/security.py) + [app.py](services/api/src/charutei_api/app.py) + [auth.py](services/api/src/charutei_api/auth.py)):
+- **CORS por env** (`CHARUTEI_CORS_ORIGINS` CSV) — **nunca `*`**; default localhost em dev, `[]` em
+  produção (força config explícita).
+- **Guard de produção**: `CHARUTEI_ENV=production` sem `SUPABASE_JWT_SECRET` → **fail-fast** no boot
+  (recusa FakeAuthProvider, que aceitaria qualquer token). Validado ao vivo.
+- **Rate limiting**: middleware de **janela deslizante em memória** por cliente (token ou IP);
+  `/healthz` isento; `429` + `Retry-After`. Configurável (`CHARUTEI_RATE_LIMIT`/`_WINDOW_S`; `0`
+  desabilita). 1ª camada — multi-réplica exige store compartilhado (Redis).
+- `.env.example` documenta as novas variáveis.
+
+**Testes/evals:** ruff ✓ · format ✓ · mypy ✓ · **pytest 108 passed, 12 skipped** (+10 segurança) ·
+**7 gates PASS**. Cobre CORS (dev/env/prod), guard de produção (raise), rate limiter (janela,
+disable) e **429 end-to-end** no BFF.
+
+---
+
 ## S18 — Persistência durável (Postgres) no BFF (P0.2) (✅)
 **Contexto:** auditoria apontou que o BFF era 100% in-memory — coleção/humidor **se perdiam no
 restart** e não escalavam além de 1 processo. Postgres já existia em `packages/knowledge` mas não
