@@ -187,9 +187,7 @@ class AnthropicToolRunner:
                 )
                 in_tokens += resp.usage.input_tokens
                 out_tokens += resp.usage.output_tokens
-                final_text = (
-                    "".join(b.text for b in resp.content if b.type == "text") or final_text
-                )
+                final_text = "".join(b.text for b in resp.content if b.type == "text") or final_text
                 if resp.stop_reason != "tool_use":
                     break
 

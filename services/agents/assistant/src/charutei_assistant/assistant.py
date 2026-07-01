@@ -60,9 +60,7 @@ class _DocStoreRetriever:
 
     async def search(self, query: str, k: int = 4) -> list[RetrievedDoc]:
         hits = await self._store.search(query, k=k)
-        return [
-            RetrievedDoc(id=d.id, title=d.title, text=d.text, score=score) for d, score in hits
-        ]
+        return [RetrievedDoc(id=d.id, title=d.title, text=d.text, score=score) for d, score in hits]
 
 
 def _build_tool_runner(cigar_tools: CigarTools) -> ToolRunner:

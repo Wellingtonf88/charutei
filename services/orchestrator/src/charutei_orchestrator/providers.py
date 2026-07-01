@@ -323,9 +323,7 @@ class GeminiVisionProvider:
 
         client = genai.Client(api_key=self._api_key)
         api_model = self._MODEL_IDS.get(model, model)
-        cand_lines = "\n".join(
-            f"- {c.cigar_id}: {c.label or c.cigar_id}" for c in candidates
-        )
+        cand_lines = "\n".join(f"- {c.cigar_id}: {c.label or c.cigar_id}" for c in candidates)
         prompt_text = (
             "Você é um especialista em charutos. Analise a imagem desta anilha e identifique "
             "qual charuto da lista abaixo é o mais provável. Responda APENAS com o cigar_id "
@@ -334,9 +332,7 @@ class GeminiVisionProvider:
         )
         parts: list[dict[str, Any]] = [{"text": prompt_text}]
         if image.data_b64:
-            parts.append(
-                {"inline_data": {"mime_type": "image/jpeg", "data": image.data_b64}}
-            )
+            parts.append({"inline_data": {"mime_type": "image/jpeg", "data": image.data_b64}})
         response = await client.aio.models.generate_content(
             model=api_model,
             contents=[{"role": "user", "parts": parts}],

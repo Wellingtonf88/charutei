@@ -65,7 +65,5 @@ class Supervisor:
         spec = self.route(kind)
         handler = self._handlers.get(spec.capability)
         if handler is None:
-            raise KeyError(
-                f"nenhum handler registrado para a capability '{spec.capability}'"
-            )
+            raise KeyError(f"nenhum handler registrado para a capability '{spec.capability}'")
         return await handler(payload)

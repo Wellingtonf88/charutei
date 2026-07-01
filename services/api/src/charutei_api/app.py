@@ -97,9 +97,7 @@ def create_app(ctx: AppContext) -> FastAPI:
         return result
 
     @app.post("/ask")
-    async def ask(
-        req: AskRequest, user: AuthUser = Depends(current_user)
-    ) -> CascadeResult:
+    async def ask(req: AskRequest, user: AuthUser = Depends(current_user)) -> CascadeResult:
         result: CascadeResult = await ctx.supervisor.dispatch(RequestKind.ASSISTANT_TEXT, req.q)
         return result
 

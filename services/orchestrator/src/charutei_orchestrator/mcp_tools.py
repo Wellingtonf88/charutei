@@ -138,9 +138,7 @@ class CigarTools:
         if not docs:
             return ToolResult(text="")
         snippets = [f"[{d.id}] {d.title}: {d.text}" for d in docs[:3]]
-        citations = [
-            Citation(source_id=d.id, title=d.title, snippet=d.text) for d in docs[:3]
-        ]
+        citations = [Citation(source_id=d.id, title=d.title, snippet=d.text) for d in docs[:3]]
         return ToolResult(text=" ".join(snippets), citations=citations)
 
 
@@ -161,8 +159,7 @@ def build_cigar_tools(tools: CigarTools) -> list[AgentTool]:
         "rag_search": tools.rag_search,
     }
     return [
-        AgentTool(name=name, description=desc, handler=handlers[name])
-        for name, desc in _TOOL_SPECS
+        AgentTool(name=name, description=desc, handler=handlers[name]) for name, desc in _TOOL_SPECS
     ]
 
 

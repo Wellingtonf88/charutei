@@ -75,9 +75,7 @@ class _SpyToolRunner(FakeToolRunner):
 
 async def test_fake_tool_runner_aggregates_tool_results_with_citations() -> None:
     runner = FakeToolRunner()
-    out = await runner.run(
-        model="opus-4.8", system="sys", prompt="fale do cohiba", tools=_tools()
-    )
+    out = await runner.run(model="opus-4.8", system="sys", prompt="fale do cohiba", tools=_tools())
     assert out.model == "opus-4.8"
     assert "kg_query" in out.text
     assert out.citations and out.citations[0].source_id == "cigar:cohiba-siglo-vi"
