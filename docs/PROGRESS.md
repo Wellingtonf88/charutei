@@ -27,6 +27,20 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
 
 ---
 
+## S20 — Cobertura de testes no CI (P2) (✅)
+**Contexto:** auditoria apontou ausência de métrica de cobertura. Fechado com piso no CI.
+
+**Entregue:**
+- `pytest-cov` no grupo `dev`; config `[tool.coverage.*]` no pyproject (`source = packages, services`;
+  omite tests/migrations; `fail_under = 85`, `show_missing`, `skip_covered`).
+- CI e `scripts/verify.sh` rodam `pytest --cov --cov-report=term-missing` → **build reprova abaixo de 85%**.
+
+**Medição:** cobertura atual **90.9%** (2845 statements). Piso 85% dá margem anti-flaky; os adaptadores
+reais (Anthropic/Voyage/Gemini/MCP) só rodam sob chave (skipif) e contam como não-cobertos no CI.
+Simulação do ambiente do CI (sem `mcp`): **90.1%** — folga confortável sobre o piso.
+
+---
+
 ## S19 — Endurecimento de segurança do BFF (P1) (✅)
 **Contexto:** auditoria apontou `allow_origins=["*"]` e `FakeAuthProvider` por default como riscos
 de produção. Fechados, mantendo dev/CI sem fricção.

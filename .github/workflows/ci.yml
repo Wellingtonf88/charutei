@@ -31,8 +31,8 @@ jobs:
       - name: Types (mypy)
         run: uv run mypy packages services
 
-      - name: Tests
-        run: uv run pytest -q
+      - name: Tests (+ cobertura, piso 85%)
+        run: uv run pytest -q --cov --cov-report=term-missing
 
   evals:
     runs-on: ubuntu-latest
