@@ -2,28 +2,46 @@
 
 Fluxo do app mobile: autentica → captura/upload de anilha → reconhecimento → adiciona à coleção.
 Escritas publicam eventos via outbox (consumidos pelo Embedding Worker e demais agentes).
+
+O contexto (repos/agentes) é injetado. Em teste, passa-se um `AppContext` pronto; em produção
+(`main.py`), `create_app()` sem contexto o monta no **lifespan** — necessário para recursos
+ligados ao event loop do servidor (ex.: conexão Postgres), fechados no shutdown.
 """
 
 from __future__ import annotations
 
 import uuid
+from contextlib import asynccontextmanager
 
 from charutei_contracts import BandImage, BandRecognitionResult, CascadeResult
 from charutei_events import EventType
 from charutei_events.models import Event
 from charutei_knowledge import Band, Collection, CollectionItem, NodeType, User
 from charutei_orchestrator import RequestKind
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from charutei_api.auth import AuthUser
-from charutei_api.context import AppContext
+from charutei_api.context import AppContext, build_context
 from charutei_api.schemas import AddItemRequest, AskRequest, CatalogEntry, RecognizeRequest
 
 
-def create_app(ctx: AppContext) -> FastAPI:
-    app = FastAPI(title="CHARUTEI BFF", version="0.0.0")
-    app.state.ctx = ctx
+def create_app(ctx: AppContext | None = None) -> FastAPI:
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
+        # Monta o contexto no boot do servidor quando não injetado (produção/main.py) — assim a
+        # conexão Postgres nasce no loop do uvicorn. Fecha no shutdown.
+        owns = app.state.ctx is None
+        if owns:
+            app.state.ctx = await build_context()
+        try:
+            yield
+        finally:
+            if owns:
+                await app.state.ctx.aclose()
+
+    app = FastAPI(title="CHARUTEI BFF", version="0.0.0", lifespan=lifespan)
+    app.state.ctx = ctx  # síncrono: testes passam contexto pronto (ASGITransport não roda lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],  # demo — restringir em produção
@@ -31,7 +49,14 @@ def create_app(ctx: AppContext) -> FastAPI:
         allow_headers=["*"],
     )
 
-    async def current_user(authorization: str = Header(default="")) -> AuthUser:
+    def get_ctx(request: Request) -> AppContext:
+        ctx = request.app.state.ctx
+        assert isinstance(ctx, AppContext)  # garantido pelo lifespan/injeção
+        return ctx
+
+    async def current_user(
+        authorization: str = Header(default=""), ctx: AppContext = Depends(get_ctx)
+    ) -> AuthUser:
         token = authorization.removeprefix("Bearer ").strip()
         user = await ctx.auth.verify(token)
         if user is None:
@@ -45,7 +70,7 @@ def create_app(ctx: AppContext) -> FastAPI:
         return {"status": "ok"}
 
     @app.get("/catalog")
-    async def catalog() -> list[CatalogEntry]:
+    async def catalog(ctx: AppContext = Depends(get_ctx)) -> list[CatalogEntry]:
         cigars = await ctx.kg.nodes_by_type(NodeType.CIGAR)
         entries: list[CatalogEntry] = []
         for c in cigars:
@@ -67,7 +92,9 @@ def create_app(ctx: AppContext) -> FastAPI:
 
     @app.post("/bands/recognize")
     async def recognize(
-        req: RecognizeRequest, user: AuthUser = Depends(current_user)
+        req: RecognizeRequest,
+        user: AuthUser = Depends(current_user),
+        ctx: AppContext = Depends(get_ctx),
     ) -> BandRecognitionResult:
         result: BandRecognitionResult = await ctx.supervisor.dispatch(
             RequestKind.BAND_IMAGE,
@@ -97,7 +124,11 @@ def create_app(ctx: AppContext) -> FastAPI:
         return result
 
     @app.post("/ask")
-    async def ask(req: AskRequest, user: AuthUser = Depends(current_user)) -> CascadeResult:
+    async def ask(
+        req: AskRequest,
+        user: AuthUser = Depends(current_user),
+        ctx: AppContext = Depends(get_ctx),
+    ) -> CascadeResult:
         result: CascadeResult = await ctx.supervisor.dispatch(RequestKind.ASSISTANT_TEXT, req.q)
         return result
 
@@ -105,6 +136,7 @@ def create_app(ctx: AppContext) -> FastAPI:
     async def add_item(
         req: AddItemRequest,
         user: AuthUser = Depends(current_user),
+        ctx: AppContext = Depends(get_ctx),
         idempotency_key: str | None = Header(default=None),
     ) -> Collection:
         col_id = f"col:{user.id}"
@@ -135,7 +167,9 @@ def create_app(ctx: AppContext) -> FastAPI:
         return collection
 
     @app.get("/collection")
-    async def get_collection(user: AuthUser = Depends(current_user)) -> Collection:
+    async def get_collection(
+        user: AuthUser = Depends(current_user), ctx: AppContext = Depends(get_ctx)
+    ) -> Collection:
         collection = await ctx.oltp.get_collection(f"col:{user.id}")
         if collection is None:
             return Collection(id=f"col:{user.id}", user_id=user.id)

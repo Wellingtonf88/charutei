@@ -27,6 +27,37 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
 
 ---
 
+## S18 — Persistência durável (Postgres) no BFF (P0.2) (✅)
+**Contexto:** auditoria apontou que o BFF era 100% in-memory — coleção/humidor **se perdiam no
+restart** e não escalavam além de 1 processo. Postgres já existia em `packages/knowledge` mas não
+estava ligado ao BFF.
+
+**Entregue:**
+- **`build_context`** ([context.py](services/api/src/charutei_api/context.py)) seleciona a
+  persistência por env (espelha `build_providers`/`build_auth_provider`): `DATABASE_URL` presente →
+  **`PostgresKnowledgeGraph` + `PostgresOltp`** (KG + OLTP duráveis, commit por operação); ausente →
+  in-memory. Semeia+ingere os 410 SKUs **só no primeiro boot** (guard por KG vazio → restart é ~1s).
+  Índices derivados (catálogo vetorial do reconhecimento + corpus RAG) seguem in-memory,
+  reconstruídos do KG a cada boot. Normaliza o prefixo `postgresql+psycopg://` do `.env.example`.
+- **Lifecycle** ([app.py](services/api/src/charutei_api/app.py), [main.py](services/api/src/charutei_api/main.py)):
+  contexto montado no **lifespan** do FastAPI (não mais `asyncio.run` no import) — a conexão Postgres
+  nasce no loop do uvicorn e é fechada no shutdown (`AppContext.aclose`). Handlers leem o contexto via
+  dependência `get_ctx` (`app.state.ctx`), desacoplando criação do app da construção do contexto.
+- Teste de integração `test_api_postgres.py` (skipif sem `CHARUTEI_TEST_DATABASE_URL`).
+
+**Validação ao vivo (Postgres do compose):** 1º boot semeou **417 SKUs** no Postgres; adicionei item
+à coleção → **restart do BFF** (2º boot ~1s) → **coleção sobreviveu** (cohiba-robustos qty 2) e
+catálogo persistido. Teste durável passa com DSN `postgresql://` e `postgresql+psycopg://`.
+
+**Testes/evals:** ruff ✓ · format ✓ · mypy ✓ · **pytest 98 passed, 12 skipped** (+1 integração
+durável) · **7 gates PASS** (in-memory default inalterado).
+
+**Limitação documentada (escala):** **uma conexão por processo** — concorrência alta exige pool +
+checkout por request (refatora os repos de `packages/knowledge` → plan-gated). `idempotency_keys`
+segue in-memory (dedupe some no restart). Suficiente para MVP/demo durável.
+
+---
+
 ## S17 — Mockup demo-ready (BFF rico + UI do Assistente) (✅)
 **Contexto:** validação do mockup apontou 3 lacunas P0 — o BFF servia só 32 charutos (seed) e
 RAG vazio (perguntas gerais escalavam ao laço Opus sem fonte), e o web não expunha o `/ask`.

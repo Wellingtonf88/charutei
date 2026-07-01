@@ -1,14 +1,12 @@
-"""Entrypoint ASGI para dev local: `uvicorn charutei_api.main:app`.
+"""Entrypoint ASGI: `uvicorn charutei_api.main:app`.
 
-Monta o contexto padrão (in-memory + providers fake) no import. Em produção, construir o
-contexto com implementações Postgres/Supabase e injetar via `create_app`.
+O contexto é montado no **lifespan** (boot do servidor), não no import — assim recursos ligados
+ao event loop (conexão Postgres quando `DATABASE_URL` está setado) nascem no loop do uvicorn e
+são fechados no shutdown. Sem `DATABASE_URL`, cai no modo in-memory (dev/demo).
 """
 
 from __future__ import annotations
 
-import asyncio
-
 from charutei_api.app import create_app
-from charutei_api.context import build_context
 
-app = create_app(asyncio.run(build_context()))
+app = create_app()
