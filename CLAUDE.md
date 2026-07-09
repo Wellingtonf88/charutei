@@ -6,7 +6,11 @@
 Nenhuma chamada a LLM/embedding fora do Orchestrator.
 
 ## Stack (tier de fundação — não trocar sem aprovação)
-Mobile: Expo. Backend: FastAPI (modular monolith). Agentes: LangGraph + Claude Agent SDK + MCP.
+Mobile: Expo. Backend: FastAPI (modular monolith).
+Multi-agêntico: **Supervisor determinístico** (`orchestrator/supervisor.py`) roteia aos
+especialistas; o **laço agêntico (tool-use)** roda só no degrau Opus gated, via **tool runner do
+SDK `anthropic` + MCP in-process** (`agent_loop.py` + `mcp_tools.py`) — ferramentas read-only que
+envolvem KG/RAG, sem LLM. (LangGraph fica como swap de escala, não está no MVP.)
 Modelos: Haiku 4.5 / Sonnet 4.6 / Opus 4.8 + Gemini Flash (visão). Embeddings: Voyage 4.
 Dados: Postgres + pgvector. Cache/eventos: Redis + pgmq/Streams. Obs.: Langfuse.
 

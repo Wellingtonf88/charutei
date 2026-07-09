@@ -10,6 +10,7 @@ dependencies = [
     "charutei-knowledge",
     "charutei-orchestrator",
     "charutei-band-recognition",
+    "charutei-assistant",
     "charutei-events",
 ]
 
@@ -28,4 +29,5 @@ charutei-contracts = { workspace = true }
 charutei-knowledge = { workspace = true }
 charutei-orchestrator = { workspace = true }
 charutei-band-recognition = { workspace = true }
+charutei-assistant = { workspace = true }
 charutei-events = { workspace = true }

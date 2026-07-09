@@ -16,6 +16,7 @@ from charutei_cache import ExactCache, SemanticCache
 from charutei_contracts import CascadeResult, Citation, Tier
 from pydantic import BaseModel, Field
 
+from charutei_orchestrator.agent_loop import AgentTool, ToolRunner
 from charutei_orchestrator.governance import Governance
 from charutei_orchestrator.providers import LLMProvider, Tracer, TraceRecord
 from charutei_orchestrator.registry import TIER_MODELS, AgentRegistry, AgentSpec
@@ -56,6 +57,8 @@ class Cascade:
         kg_version: KgVersionFn | None = None,
         generation_start: Tier = Tier.MEDIUM,
         generator: Generator | None = None,
+        tool_runner: ToolRunner | None = None,
+        tools: list[AgentTool] | None = None,
     ) -> None:
         self._registry = registry
         self._gov = governance
@@ -66,6 +69,9 @@ class Cascade:
         self._kg_version = kg_version
         self._gen_start = generation_start
         self._generator = generator or self._default_generator
+        # Loop agêntico (tool-use) — usado APENAS no degrau Opus gated; None = single-shot.
+        self._tool_runner = tool_runner
+        self._tools = tools or []
 
     async def resolve(
         self,
@@ -137,9 +143,33 @@ class Cascade:
             spec, Tier.LARGE, confidence=out.confidence, tokens_used=tokens_used
         )
         if decision.allowed:
-            t1 = time.perf_counter()
-            out = await self._generator(TIER_MODELS[Tier.LARGE], system, text)
             tier = Tier.LARGE
+            opus_model = TIER_MODELS[Tier.LARGE]
+            t1 = time.perf_counter()
+            if self._tool_runner is not None:
+                # Loop agêntico: Opus orquestra ferramentas determinísticas (KG/RAG via MCP).
+                run = await self._tool_runner.run(
+                    model=opus_model, system=system, prompt=text, tools=self._tools
+                )
+                out = GenerationOutput(
+                    text=run.text,
+                    model=run.model,
+                    citations=run.citations,
+                    input_tokens=run.input_tokens,
+                    output_tokens=run.output_tokens,
+                    cost_usd=run.cost_usd,
+                    confidence=run.confidence,
+                )
+                for call in run.tool_calls:
+                    await self._trace(
+                        f"tool:{call.name}",
+                        tier,
+                        t1,
+                        capability=capability,
+                        trace_id=request_id,
+                    )
+            else:
+                out = await self._generator(opus_model, system, text)
             tokens_used += out.input_tokens + out.output_tokens
             cost += out.cost_usd
             await self._trace(

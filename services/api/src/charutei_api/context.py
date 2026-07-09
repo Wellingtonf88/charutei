@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from charutei_assistant import Assistant, DocumentStore
 from charutei_band_recognition import BandRecognitionAgent, build_band_catalog, default_spec
 from charutei_events import InMemoryOutbox
 from charutei_knowledge import (
@@ -23,7 +24,9 @@ from charutei_orchestrator import (
     AgentRegistry,
     FakeTracer,
     Governance,
+    Supervisor,
     build_band_providers,
+    build_providers,
 )
 
 from charutei_api.auth import AuthProvider, FakeAuthProvider
@@ -32,10 +35,12 @@ from charutei_api.auth import AuthProvider, FakeAuthProvider
 @dataclass
 class AppContext:
     band_agent: BandRecognitionAgent
+    assistant: Assistant
     oltp: OltpRepository
     outbox: InMemoryOutbox
     auth: AuthProvider
     kg: KnowledgeGraphRepo
+    supervisor: Supervisor
     idempotency_keys: set[str] = field(default_factory=set)
 
 
@@ -50,9 +55,10 @@ async def build_context(auth: AuthProvider | None = None) -> AppContext:
 
     registry = AgentRegistry()
     registry.register(default_spec())
+    governance = Governance()
     band_agent = BandRecognitionAgent(
         registry=registry,
-        governance=Governance(),
+        governance=governance,
         image_embed=image_embed,
         ocr=ocr,
         vision=vision,
@@ -61,10 +67,31 @@ async def build_context(auth: AuthProvider | None = None) -> AppContext:
         labels=labels,
     )
 
+    # Assistant: cascata cache→KG→RAG→Opus agêntico. Compartilha registry/governance para o
+    # Supervisor enxergar a capability 'assistant' (roteamento + kill-switch).
+    llm, embed, tracer = build_providers()
+    doc_store = DocumentStore(embed, InMemoryVectorRepository())
+    assistant = Assistant(
+        kg=kg,
+        llm=llm,
+        embed=embed,
+        doc_store=doc_store,
+        tracer=tracer,
+        registry=registry,
+        governance=governance,
+    )
+
+    # Supervisor: roteia requisições aos especialistas sob o registro/kill-switch (sem LLM).
+    supervisor = Supervisor(registry, governance)
+    supervisor.register("band_recognition", band_agent.recognize)
+    supervisor.register("assistant", assistant.ask)
+
     return AppContext(
         band_agent=band_agent,
+        assistant=assistant,
         oltp=InMemoryOltp(),
         outbox=InMemoryOutbox(),
         auth=auth or FakeAuthProvider(),
         kg=kg,
+        supervisor=supervisor,
     )

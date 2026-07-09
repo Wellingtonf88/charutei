@@ -11,10 +11,12 @@ dependencies = [
 [project.optional-dependencies]
 # Provedores reais ligados por slice; mockados por padrão (USE_FAKE_PROVIDERS=true).
 providers = [
-    "anthropic>=0.40",
+    "anthropic[mcp]>=0.40",
     "voyageai>=0.3",
     "google-genai>=0.3",
     "langfuse>=2.0,<3",
+    # Ferramentas do laço agêntico expostas via MCP in-process (S14).
+    "mcp>=1.0",
 ]
 # Caminho Postgres (migrações + repositórios). Espelha o extra de packages/knowledge.
 postgres = [

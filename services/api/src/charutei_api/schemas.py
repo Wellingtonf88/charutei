@@ -20,6 +20,12 @@ class AddItemRequest(BaseModel):
     quantity: int = Field(default=1, gt=0)
 
 
+class AskRequest(BaseModel):
+    """Pergunta em texto livre para o Assistant (cascata cache→KG→RAG→Opus agêntico)."""
+
+    q: str
+
+
 class CatalogEntry(BaseModel):
     id: str
     label: str
