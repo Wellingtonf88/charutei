@@ -1,0 +1,39 @@
+# BFF (FastAPI) do CHARUTEI — imagem de produção.
+# Build a partir da RAIZ do repo (precisa do workspace uv completo):
+#   docker build -f infra/Dockerfile.api -t charutei-bff .
+# syntax=docker/dockerfile:1
+
+# ---- builder: resolve e instala o venv do workspace ----
+FROM python:3.12-slim AS builder
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never
+WORKDIR /app
+# Membros do workspace (packages/* e services/*) + manifesto raiz (+ README, exigido pelo build).
+COPY pyproject.toml README.md ./
+COPY packages ./packages
+COPY services ./services
+# serve = uvicorn; postgres = psycopg (persistência durável). Providers reais são opt-in
+# (adicione --extra providers + chaves) — a imagem padrão roda com USE_FAKE_PROVIDERS=true.
+RUN uv sync --no-dev --all-packages --extra serve --extra postgres
+
+# ---- runtime: enxuto, non-root ----
+FROM python:3.12-slim AS runtime
+RUN useradd -m -u 10001 app
+WORKDIR /app
+COPY --from=builder /app/.venv /app/.venv
+# Reinstala os mesmos caminhos dos editáveis do venv + dados de runtime.
+COPY packages ./packages
+COPY services ./services
+COPY data ./data
+# Seed curado do KG (32 charutos) — lido por charutei_knowledge/seed.py em <root>/evals/datasets.
+COPY evals/datasets ./evals/datasets
+ENV PATH="/app/.venv/bin:$PATH" \
+    USE_FAKE_PROVIDERS=true \
+    CHARUTEI_DATA_DIR=/app/data
+USER app
+EXPOSE 8000
+# Persistência durável: passe DATABASE_URL (Postgres) via env. Auth real: SUPABASE_JWT_SECRET
+# + CHARUTEI_ENV=production. CORS: CHARUTEI_CORS_ORIGINS.
+CMD ["uvicorn", "charutei_api.main:app", "--host", "0.0.0.0", "--port", "8000"]

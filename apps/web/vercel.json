@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "installCommand": "npm ci",
+  "comment": "Monorepo: em Project Settings, defina Root Directory = apps/web. Configure a env NEXT_PUBLIC_API_URL apontando para o BFF publicado (o proxy /api/** em next.config.mjs usa essa URL)."
+}

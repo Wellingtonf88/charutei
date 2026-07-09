@@ -1,0 +1,26 @@
+# Contexto do build da imagem do BFF — só o workspace Python + dados são necessários.
+.git
+.github
+.venv
+**/__pycache__
+**/*.pyc
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.coverage
+.coverage.*
+htmlcov
+
+# Frontends e material não necessários no BFF
+apps
+docs
+scripts
+infra/langfuse
+# evals: só o código é dispensável; os datasets são dados de runtime (seed do KG).
+evals
+!evals/datasets
+
+# Ambiente/segredos
+.env
+.env.*
+!.env.example

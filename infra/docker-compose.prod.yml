@@ -1,0 +1,57 @@
+# Stack de produção self-hosted: BFF + Postgres + Redis.
+#   docker compose -f infra/docker-compose.prod.yml up --build
+# Persistência durável (KG + coleção) via Postgres. Providers reais: adicione as chaves e
+# USE_FAKE_PROVIDERS=false (requer imagem com --extra providers). Auth real: descomente
+# CHARUTEI_ENV + SUPABASE_JWT_SECRET.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: charutei
+      POSTGRES_PASSWORD: charutei
+      POSTGRES_DB: charutei
+    volumes:
+      - charutei_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U charutei"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  bff:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://charutei:charutei@postgres:5432/charutei
+      REDIS_URL: redis://redis:6379/0
+      USE_FAKE_PROVIDERS: "true"
+      CHARUTEI_CORS_ORIGINS: "http://localhost:3000,http://localhost:3001"
+      # CHARUTEI_ENV: production
+      # SUPABASE_JWT_SECRET: <segredo do projeto Supabase>
+      # ANTHROPIC_API_KEY / VOYAGE_API_KEY / GEMINI_API_KEY (com USE_FAKE_PROVIDERS=false)
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz').status==200 else 1)
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  charutei_pgdata:

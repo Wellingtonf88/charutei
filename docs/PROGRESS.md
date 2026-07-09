@@ -27,6 +27,30 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
 
 ---
 
+## S21 — Artefatos de deploy (P1) (✅)
+**Contexto:** faltava caminho de publicação. Entregues e **validados por build local**.
+
+**Entregue:**
+- **`infra/Dockerfile.api`** — imagem do BFF multi-stage (uv), **non-root**, ~296MB. Instala o
+  workspace + extras `serve`+`postgres`; providers reais opt-in. Build a partir da raiz do repo.
+- **`.dockerignore`** — enxuga o contexto (só workspace Python + `data/` + `evals/datasets` do seed).
+- **`infra/docker-compose.prod.yml`** — stack self-hosted BFF + Postgres + Redis (persistência
+  durável; healthchecks; env de segurança/providers comentadas).
+- **`apps/web/vercel.json`** + **`docs/DEPLOY.md`** — deploy do web (Vercel, Root=`apps/web`,
+  `NEXT_PUBLIC_API_URL`) + runbook completo (env, providers reais, checklist de produção, limitações).
+
+**Validação (build + run local):** imagem builda; container sobe (lifespan semeia+ingere **417 SKUs**
+in-memory); `/healthz` ✓, `/catalog` 417, `/ask` **KG ancorado (tier 2, 2 citações)**; roda como
+usuário `app` (non-root).
+
+**Correções durante a validação:** faltava `README.md` (exigido pelo build do pacote raiz) e
+`evals/datasets/cigars_seed.json` (o seed do KG lê de `<root>/evals/datasets`) — ambos incluídos.
+
+**Limitações documentadas:** `uv.lock` não versionado → builds não 100% reprodutíveis (pinar p/
+prod); acoplamento do seed a `evals/datasets` (mover p/ `packages/knowledge` é plan-gated).
+
+---
+
 ## S20 — Cobertura de testes no CI (P2) (✅)
 **Contexto:** auditoria apontou ausência de métrica de cobertura. Fechado com piso no CI.
 
