@@ -1,13 +1,25 @@
-// Ficha do charuto. Busca no catálogo em cache (React Query); acessível do scan e do Descobrir.
+// Ficha do charuto — dados do catálogo + aging (descanso) + registro/histórico de degustações.
 import * as Haptics from "expo-haptics";
-import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useState } from "react";
 import { Pressable, View } from "react-native";
 
 import { CatalogEntry, cigarLabel, STRENGTH_PT } from "../../src/api/client";
 import { useAddToCollection, useCatalog } from "../../src/api/hooks";
+import { daysSince, getAddedMap, REST_DAYS } from "../../src/store/aging";
+import { addTasting, FLAVORS, getTastingsFor, Tasting } from "../../src/store/tastings";
 import { colors, space } from "../../src/theme";
-import { Button, Card, Chip, Screen, StrengthDots, Text } from "../../src/ui";
+import {
+  Button,
+  Card,
+  Chip,
+  Field,
+  Screen,
+  SelectChip,
+  Stars,
+  StrengthDots,
+  Text,
+} from "../../src/ui";
 
 const FLAG: Record<string, string> = {
   Cuba: "🇨🇺",
@@ -29,11 +41,50 @@ export default function CigarDetail() {
   const cigar = cigars.find((c) => c.id === cigarId);
   const title = cigar?.label ?? cigarLabel(cigarId);
 
+  // Estado local (device): aging + degustações deste charuto.
+  const [addedIso, setAddedIso] = useState<string | null>(null);
+  const [tastings, setTastings] = useState<Tasting[]>([]);
+  const [rating, setRating] = useState(0);
+  const [flavors, setFlavors] = useState<string[]>([]);
+  const [occasion, setOccasion] = useState("");
+  const [note, setNote] = useState("");
+
+  const loadLocal = useCallback(async () => {
+    setTastings(await getTastingsFor(cigarId));
+    const map = await getAddedMap();
+    setAddedIso(map[cigarId] ?? null);
+  }, [cigarId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadLocal();
+    }, [loadLocal]),
+  );
+
   async function onAdd() {
     await add.mutateAsync(cigarId);
     setAdded(true);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    await loadLocal();
   }
+
+  function toggleFlavor(f: string) {
+    setFlavors((prev) => (prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f]));
+  }
+
+  async function saveTasting() {
+    if (rating === 0) return;
+    await addTasting({ cigarId, rating, flavors, occasion: occasion.trim(), note: note.trim() });
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setRating(0);
+    setFlavors([]);
+    setOccasion("");
+    setNote("");
+    await loadLocal();
+  }
+
+  const restDays = addedIso ? daysSince(addedIso) : null;
+  const rested = restDays !== null && restDays >= REST_DAYS;
 
   return (
     <Screen>
@@ -51,41 +102,47 @@ export default function CigarDetail() {
         <Text variant="display">{FLAG[cigar?.country ?? ""] ?? "🌍"}</Text>
       </View>
 
-      {cigar ? (
-        <>
-          <Card>
-            <Row label="Marca" value={cigar.brand ?? "—"} />
-            <Row label="País" value={cigar.country ?? "—"} />
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <Text variant="caption" color={colors.textFaint}>
-                INTENSIDADE
-              </Text>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
-                <Text variant="body" color={colors.textMuted}>
-                  {cigar.strength ? (STRENGTH_PT[cigar.strength] ?? cigar.strength) : "—"}
-                </Text>
-                <StrengthDots strength={cigar.strength} />
-              </View>
-            </View>
-          </Card>
+      {/* Aging / descanso */}
+      {restDays !== null && (
+        <Card>
+          <Text variant="caption" color={colors.textFaint}>
+            NO HUMIDOR
+          </Text>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <Text variant="heading">
+              {restDays} {restDays === 1 ? "dia" : "dias"} de descanso
+            </Text>
+            <Chip
+              label={rested ? "pronto" : `descansa +${REST_DAYS - restDays}d`}
+              tone={rested ? "gold" : "neutral"}
+            />
+          </View>
+        </Card>
+      )}
 
-          {cigar.pairings.length > 0 && (
-            <Card>
-              <Text variant="caption" color={colors.textFaint}>
-                HARMONIZAÇÕES
+      {cigar && (
+        <Card>
+          <Row label="Marca" value={cigar.brand ?? "—"} />
+          <Row label="País" value={cigar.country ?? "—"} />
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <Text variant="caption" color={colors.textFaint}>
+              INTENSIDADE
+            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+              <Text variant="body" color={colors.textMuted}>
+                {cigar.strength ? (STRENGTH_PT[cigar.strength] ?? cigar.strength) : "—"}
               </Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
-                {cigar.pairings.map((p) => (
-                  <Chip key={p} label={p} tone="gold" />
-                ))}
-              </View>
-            </Card>
+              <StrengthDots strength={cigar.strength} />
+            </View>
+          </View>
+          {cigar.pairings.length > 0 && (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
+              {cigar.pairings.map((p) => (
+                <Chip key={p} label={p} tone="gold" />
+              ))}
+            </View>
           )}
-        </>
-      ) : (
-        <Text variant="body" color={colors.textMuted}>
-          Carregando ficha…
-        </Text>
+        </Card>
       )}
 
       {added ? (
@@ -94,6 +151,53 @@ export default function CigarDetail() {
         </Text>
       ) : (
         <Button title="Adicionar ao humidor" onPress={onAdd} loading={add.isPending} />
+      )}
+
+      {/* Registrar degustação */}
+      <Card>
+        <Text variant="heading">Registrar degustação</Text>
+        <Stars value={rating} onChange={setRating} />
+        <Text variant="caption" color={colors.textFaint}>
+          SABORES
+        </Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
+          {FLAVORS.map((f) => (
+            <SelectChip key={f} label={f} active={flavors.includes(f)} onPress={() => toggleFlavor(f)} />
+          ))}
+        </View>
+        <Field value={occasion} onChangeText={setOccasion} placeholder="Ocasião (ex.: pós-jantar)" autoCapitalize="sentences" />
+        <Field value={note} onChangeText={setNote} placeholder="Nota pessoal…" autoCapitalize="sentences" />
+        <Button title="Salvar degustação" onPress={saveTasting} disabled={rating === 0} />
+      </Card>
+
+      {/* Histórico */}
+      {tastings.length > 0 && (
+        <View style={{ gap: space.md }}>
+          <Text variant="heading">Suas degustações</Text>
+          {tastings.map((t) => (
+            <Card key={t.id}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Stars value={t.rating} size={16} />
+                <Text variant="caption" color={colors.textFaint}>
+                  {new Date(t.date).toLocaleDateString("pt-BR")}
+                </Text>
+              </View>
+              {t.flavors.length > 0 && (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
+                  {t.flavors.map((f) => (
+                    <Chip key={f} label={f} />
+                  ))}
+                </View>
+              )}
+              {!!t.occasion && (
+                <Text variant="caption" color={colors.textMuted}>
+                  {t.occasion}
+                </Text>
+              )}
+              {!!t.note && <Text variant="body">{t.note}</Text>}
+            </Card>
+          ))}
+        </View>
       )}
     </Screen>
   );

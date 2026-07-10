@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { View } from "react-native";
 
-import { AskResult, TIER_NAMES } from "../../src/api/client";
-import { useAsk } from "../../src/api/hooks";
+import { AskResult, cigarLabel, TIER_NAMES } from "../../src/api/client";
+import { useAsk, useCollection } from "../../src/api/hooks";
 import { colors, space } from "../../src/theme";
 import { Button, Card, Chip, ErrorText, Field, Screen, Text } from "../../src/ui";
 
@@ -18,12 +18,27 @@ export default function Sommelier() {
   const [q, setQ] = useState("");
   const [result, setResult] = useState<AskResult | null>(null);
   const ask = useAsk();
+  const { data: collection } = useCollection();
 
   async function send(question: string) {
     const text = question.trim();
     if (!text) return;
     setResult(null);
     setResult(await ask.mutateAsync(text));
+  }
+
+  // Recomendação contextual: monta a pergunta a partir do humidor do usuário.
+  async function recommendFromHumidor() {
+    const items = collection?.items ?? [];
+    if (items.length === 0) {
+      await send("Sou iniciante e quero montar meu humidor. Que charuto você recomenda para começar?");
+      return;
+    }
+    const names = items.slice(0, 8).map((i: { cigar_id: string }) => cigarLabel(i.cigar_id));
+    await send(
+      `Tenho estes charutos no meu humidor: ${names.join(", ")}. ` +
+        "Com base nisso, recomende uma harmonização e um próximo charuto para eu experimentar.",
+    );
   }
 
   return (
@@ -43,6 +58,12 @@ export default function Sommelier() {
         onSubmitEditing={() => send(q)}
       />
       <Button title="Perguntar" onPress={() => send(q)} loading={ask.isPending} disabled={!q.trim()} />
+      <Button
+        title="✨ Recomendar do meu humidor"
+        onPress={recommendFromHumidor}
+        variant="secondary"
+        loading={ask.isPending}
+      />
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
         {EXAMPLES.map((ex) => (

@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useToken } from "../auth/context";
+import { recordAdded } from "../store/aging";
 import {
   addToCollection,
   ask,
@@ -48,7 +49,10 @@ export function useAddToCollection() {
   const qc = useQueryClient();
   return useMutation<Collection, Error, string>({
     mutationFn: (cigarId) => addToCollection(token, cigarId, `add-${cigarId}-${Date.now()}`),
-    onSuccess: (col) => qc.setQueryData(["collection"], col),
+    onSuccess: (col, cigarId) => {
+      qc.setQueryData(["collection"], col);
+      void recordAdded(cigarId); // registra aging + agenda lembrete de descanso
+    },
   });
 }
 

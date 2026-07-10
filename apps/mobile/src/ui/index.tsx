@@ -14,6 +14,7 @@ import {
   ViewProps,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { colors, font, radius, space } from "../theme";
@@ -164,6 +165,66 @@ export function ErrorText({ children }: { children: ReactNode }) {
     <Text variant="caption" color={colors.danger}>
       {children}
     </Text>
+  );
+}
+
+// Avaliação por estrelas (1..5). Interativa quando `onChange` é passado.
+export function Stars({
+  value,
+  onChange,
+  size = 26,
+}: {
+  value: number;
+  onChange?: (v: number) => void;
+  size?: number;
+}) {
+  return (
+    <View style={{ flexDirection: "row", gap: space.xs }}>
+      {[1, 2, 3, 4, 5].map((i) => {
+        const filled = i <= value;
+        const star = (
+          <Ionicons
+            name={filled ? "star" : "star-outline"}
+            size={size}
+            color={filled ? colors.gold : colors.textFaint}
+          />
+        );
+        return onChange ? (
+          <Pressable
+            key={i}
+            onPress={() => {
+              void Haptics.selectionAsync();
+              onChange(i);
+            }}
+          >
+            {star}
+          </Pressable>
+        ) : (
+          <View key={i}>{star}</View>
+        );
+      })}
+    </View>
+  );
+}
+
+// Chip selecionável (toggle) — usado para escolher sabores na degustação.
+export function SelectChip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress}>
+      <View style={[styles.chip, active && styles.chipGold]}>
+        <Text variant="caption" color={active ? colors.gold : colors.textMuted}>
+          {label}
+        </Text>
+      </View>
+    </Pressable>
   );
 }
 

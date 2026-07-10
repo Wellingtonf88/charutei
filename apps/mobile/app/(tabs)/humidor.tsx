@@ -1,20 +1,22 @@
-// Humidor — a coleção do usuário. F0: lista themed. F1: estante visual + aging tracker.
-import { useFocusEffect } from "expo-router";
-import { useCallback } from "react";
-import { View } from "react-native";
+// Humidor — a coleção do usuário, com aging (descanso) por charuto. Card → ficha.
+import { Link, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
+import { Pressable, View } from "react-native";
 
 import { cigarLabel, CollectionItem } from "../../src/api/client";
 import { useCollection } from "../../src/api/hooks";
+import { AddedMap, daysSince, getAddedMap, REST_DAYS } from "../../src/store/aging";
 import { colors, space } from "../../src/theme";
-import { Card, ErrorText, Screen, Text } from "../../src/ui";
+import { Card, Chip, ErrorText, Screen, Text } from "../../src/ui";
 
 export default function Humidor() {
   const { data, isLoading, isError, error, refetch } = useCollection();
+  const [aging, setAging] = useState<AddedMap>({});
 
-  // Reconsulta ao focar a aba (após adicionar um charuto na tela Identificar).
   useFocusEffect(
     useCallback(() => {
       void refetch();
+      void getAddedMap().then(setAging);
     }, [refetch]),
   );
 
@@ -44,18 +46,37 @@ export default function Humidor() {
       )}
 
       <View style={{ gap: space.md }}>
-        {items.map((item: CollectionItem) => (
-          <Card key={item.id}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <Text variant="heading">{cigarLabel(item.cigar_id)}</Text>
-              {item.quantity > 1 && (
-                <Text variant="label" color={colors.gold}>
-                  ×{item.quantity}
-                </Text>
-              )}
-            </View>
-          </Card>
-        ))}
+        {items.map((item: CollectionItem) => {
+          const iso = aging[item.cigar_id];
+          const days = iso ? daysSince(iso) : null;
+          const rested = days !== null && days >= REST_DAYS;
+          return (
+            <Link key={item.id} href={`/cigar/${encodeURIComponent(item.cigar_id)}`} asChild>
+              <Pressable>
+                <Card>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    <Text variant="heading" style={{ flex: 1 }}>
+                      {cigarLabel(item.cigar_id)}
+                    </Text>
+                    {item.quantity > 1 && (
+                      <Text variant="label" color={colors.gold}>
+                        ×{item.quantity}
+                      </Text>
+                    )}
+                  </View>
+                  {days !== null && (
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                      <Text variant="caption" color={colors.textMuted}>
+                        descansando há {days} {days === 1 ? "dia" : "dias"}
+                      </Text>
+                      {rested && <Chip label="pronto" tone="gold" />}
+                    </View>
+                  )}
+                </Card>
+              </Pressable>
+            </Link>
+          );
+        })}
       </View>
     </Screen>
   );

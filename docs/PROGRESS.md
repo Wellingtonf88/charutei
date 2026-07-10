@@ -27,6 +27,25 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
 
 ---
 
+## F2 — Engajamento & retenção do app mobile (✅)
+**Contexto:** camada que faz o usuário voltar. **Local-first no device** — a versão sincronizada
+no backend (tasting/aging no Postgres) toca `packages/knowledge` → **plan-gated (F2.5)**.
+
+**Entregue** (`apps/mobile`):
+- **Sommelier contextual**: botão "Recomendar do meu humidor" monta a pergunta a partir da coleção
+  e chama `/ask`.
+- **Tasting notes** (AsyncStorage): na ficha do charuto — rating (estrelas), sabores (chips),
+  ocasião e nota; histórico por charuto. Primitivos `Stars`/`SelectChip` no design system.
+- **Aging tracker**: registra a entrada no humidor, mostra "descansando há N dias" na ficha e no
+  humidor, e **agenda notificação local de descanso** (30 dias) via `expo-notifications` (Expo Go).
+- Humidor e Descobrir com cards clicáveis → ficha.
+
+**Validação:** `tsc --noEmit` limpo · `expo config` OK. Deps: async-storage, expo-notifications.
+**Simulador pendente.** Próximo: **F2.5** (sync backend de tasting/aging — plan-gated) e **F3**
+(perfil de paladar, compartilhamento, gamificação).
+
+---
+
 ## F1 — Core experience do app mobile (✅)
 **Entregue** (`apps/mobile`):
 - **Identificar (hero moment):** câmera (`expo-camera`) → foto (`data_b64`, pronto p/ Voyage
