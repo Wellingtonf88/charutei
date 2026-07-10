@@ -27,6 +27,20 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
 
 ---
 
+## F1 — Core experience do app mobile (✅)
+**Entregue** (`apps/mobile`):
+- **Identificar (hero moment):** câmera (`expo-camera`) → foto (`data_b64`, pronto p/ Voyage
+  multimodal em produção) + hint de marca (modo demo) → **card revelado com animação** (`Reveal`:
+  fade+slide+scale, `Animated` nativo) + candidatos ranqueados + link "Ver ficha". Haptics no scan/adição.
+- **Ficha do charuto** (`app/cigar/[id]`): marca/país/força + harmonizações (chips) + adicionar ao humidor.
+- **Descobrir:** filtros por país e força (pills roláveis) + busca; card clicável → ficha.
+- Design system ganhou o primitivo `Reveal` (sem dep nova).
+
+**Validação:** `tsc --noEmit` limpo · `expo config` OK · 10 rotas. Correção de tipos: `data` do
+React Query fixado na fronteira (const tipado) para `find`/`map` ganharem tipo real. **Simulador pendente.**
+
+---
+
 ## F0 — Fundação do app mobile (produto) (✅)
 **Contexto:** auditoria de produto mostrou o backend production-hardened mas o mobile — o produto
 final — como protótipo single-file (`App.tsx`, 155 linhas, componentes nativos crus, sem navegação

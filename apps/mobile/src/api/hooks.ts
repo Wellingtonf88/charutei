@@ -7,7 +7,6 @@ import {
   addToCollection,
   ask,
   AskResult,
-  CatalogEntry,
   Collection,
   getCatalog,
   getCollection,
@@ -15,9 +14,10 @@ import {
   RecognitionResult,
 } from "./client";
 
+// Tipo de dados inferido do `queryFn` (v5) — evita `data: any` da forma com generic único.
 export function useCollection() {
   const token = useToken();
-  return useQuery<Collection>({
+  return useQuery({
     queryKey: ["collection"],
     queryFn: () => getCollection(token),
   });
@@ -25,7 +25,7 @@ export function useCollection() {
 
 export function useCatalog() {
   const token = useToken();
-  return useQuery<CatalogEntry[]>({
+  return useQuery({
     queryKey: ["catalog"],
     queryFn: () => getCatalog(token),
     staleTime: 1000 * 60 * 10, // catálogo muda pouco

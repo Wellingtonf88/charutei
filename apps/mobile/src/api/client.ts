@@ -118,3 +118,10 @@ export const TIER_NAMES: Record<number, string> = {
   4: "RAG",
   5: "Opus",
 };
+
+export const STRENGTH_PT: Record<string, string> = {
+  mild: "Suave",
+  medium: "Médio",
+  "medium-full": "Médio-Forte",
+  full: "Forte",
+};

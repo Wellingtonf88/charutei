@@ -1,8 +1,9 @@
 // Primitivos de UI do CHARUTEI — a base do design system (consomem src/theme).
 // Telas montam só com estes componentes; trocar a lib de estilo depois = mexer só aqui.
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useRef } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -163,6 +164,29 @@ export function ErrorText({ children }: { children: ReactNode }) {
     <Text variant="caption" color={colors.danger}>
       {children}
     </Text>
+  );
+}
+
+// Revelação (fade + slide-up + scale) — o "momento mágico" ao mostrar o card do charuto.
+// `trigger` muda a cada resultado novo para reanimar. Usa o driver nativo (roda fora da UI thread).
+export function Reveal({ children, trigger }: { children: ReactNode; trigger: unknown }) {
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    v.setValue(0);
+    Animated.spring(v, { toValue: 1, useNativeDriver: true, friction: 8, tension: 60 }).start();
+  }, [trigger, v]);
+  return (
+    <Animated.View
+      style={{
+        opacity: v,
+        transform: [
+          { translateY: v.interpolate({ inputRange: [0, 1], outputRange: [26, 0] }) },
+          { scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) },
+        ],
+      }}
+    >
+      {children}
+    </Animated.View>
   );
 }
 
