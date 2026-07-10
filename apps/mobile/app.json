@@ -2,14 +2,27 @@
   "expo": {
     "name": "CHARUTEI",
     "slug": "charutei",
+    "scheme": "charutei",
     "version": "0.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#14110E",
     "newArchEnabled": true,
-    "ios": { "supportsTablet": true },
-    "android": { "package": "co.heimr.charutei" },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "co.heimr.charutei"
+    },
     "plugins": [
-      ["expo-camera", { "cameraPermission": "O CHARUTEI usa a câmera para reconhecer a anilha do charuto." }]
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "O CHARUTEI usa a câmera para reconhecer a anilha do charuto."
+        }
+      ],
+      "expo-router",
+      "expo-secure-store"
     ],
     "extra": {
       "apiBaseUrl": "http://localhost:8000"

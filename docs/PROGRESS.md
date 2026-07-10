@@ -27,6 +27,30 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
 
 ---
 
+## F0 — Fundação do app mobile (produto) (✅)
+**Contexto:** auditoria de produto mostrou o backend production-hardened mas o mobile — o produto
+final — como protótipo single-file (`App.tsx`, 155 linhas, componentes nativos crus, sem navegação
+nem design). F0 monta a fundação de um app de verdade.
+
+**Entregue** (`apps/mobile`):
+- **Navegação `expo-router`**: `app/_layout` (providers) + gate de sessão + `login` + **5 abas**
+  (Identificar · Sommelier · Humidor · Descobrir · Perfil).
+- **Design system**: `src/theme.ts` (tokens — paleta tabaco/âmbar premium) + `src/ui` (primitivos
+  Screen/Text/Button/Card/Chip/Field/StrengthDots com haptics).
+- **Estado servidor**: React Query (`src/api/client` + `hooks`) — recognize/collection/catalog/ask.
+- **Auth persistente**: `expo-secure-store` (sobrevive a restart) via `AuthContext`.
+- **5 telas funcionais** já ligadas ao BFF (inclui o **Sommelier IA `/ask`** — antes ausente no
+  mobile — e o **catálogo 417** em Descobrir).
+- Deps: `expo-router`, `@tanstack/react-query`, `expo-secure-store`, `expo-haptics`, safe-area/screens.
+
+**Validação:** `tsc --noEmit` limpo · `expo config` OK · 9 rotas registradas. **Execução em
+simulador pendente** (requer device iOS/Android — fora deste ambiente).
+
+**Salto de exposição:** o mobile passou de ~30% para expor reconhecimento + assistente IA + catálogo
+417 + humidor. Próximo: **F1** (câmera→visão + hero moment de revelação; filtros; detalhe do charuto).
+
+---
+
 ## S21 — Artefatos de deploy (P1) (✅)
 **Contexto:** faltava caminho de publicação. Entregues e **validados por build local**.
 
