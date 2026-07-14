@@ -16,7 +16,7 @@ from contextlib import asynccontextmanager
 from charutei_contracts import BandImage, BandRecognitionResult, CascadeResult
 from charutei_events import EventType
 from charutei_events.models import Event
-from charutei_knowledge import Band, Collection, CollectionItem, NodeType, User
+from charutei_knowledge import Band, Collection, CollectionItem, NodeType, TastingNote, User
 from charutei_orchestrator import RequestKind
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,7 +25,13 @@ from starlette.middleware.base import RequestResponseEndpoint
 
 from charutei_api.auth import AuthUser
 from charutei_api.context import AppContext, build_context
-from charutei_api.schemas import AddItemRequest, AskRequest, CatalogEntry, RecognizeRequest
+from charutei_api.schemas import (
+    AddItemRequest,
+    AskRequest,
+    CatalogEntry,
+    RecognizeRequest,
+    TastingRequest,
+)
 from charutei_api.security import SlidingWindowRateLimiter, cors_origins, rate_limit_config
 
 
@@ -153,6 +159,32 @@ def create_app(ctx: AppContext | None = None) -> FastAPI:
     ) -> CascadeResult:
         result: CascadeResult = await ctx.supervisor.dispatch(RequestKind.ASSISTANT_TEXT, req.q)
         return result
+
+    @app.post("/tasting")
+    async def add_tasting(
+        req: TastingRequest,
+        user: AuthUser = Depends(current_user),
+        ctx: AppContext = Depends(get_ctx),
+    ) -> TastingNote:
+        return await ctx.oltp.add_tasting(
+            TastingNote(
+                id=uuid.uuid4().hex,
+                user_id=user.id,
+                cigar_id=req.cigar_id,
+                rating=req.rating,
+                flavors=req.flavors,
+                occasion=req.occasion,
+                note=req.note,
+            )
+        )
+
+    @app.get("/tasting")
+    async def list_tastings(
+        user: AuthUser = Depends(current_user),
+        ctx: AppContext = Depends(get_ctx),
+        cigar_id: str | None = None,
+    ) -> list[TastingNote]:
+        return await ctx.oltp.list_tastings(user.id, cigar_id)
 
     @app.post("/collection/items")
     async def add_item(

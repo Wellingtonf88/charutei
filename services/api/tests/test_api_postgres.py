@@ -11,7 +11,7 @@ import os
 
 import pytest
 from charutei_api import build_context
-from charutei_knowledge import Collection, CollectionItem, NodeType, User
+from charutei_knowledge import Collection, CollectionItem, NodeType, TastingNote, User
 
 DB_URL = os.environ.get("CHARUTEI_TEST_DATABASE_URL")
 
@@ -29,7 +29,7 @@ async def test_build_context_postgres_durable(monkeypatch: pytest.MonkeyPatch) -
 
     await apply_schema(conn)
     await conn.execute(
-        "TRUNCATE kg_edges, kg_nodes, collection_items, collections, users, bands "
+        "TRUNCATE kg_edges, kg_nodes, collection_items, collections, users, bands, tasting_notes "
         "RESTART IDENTITY CASCADE"
     )
     await conn.commit()
@@ -51,5 +51,20 @@ async def test_build_context_postgres_durable(monkeypatch: pytest.MonkeyPatch) -
         )
         again = await ctx.oltp.get_collection("col:t")
         assert again is not None and len(again.items) == 1
+        assert again.items[0].created_at is not None  # aging durável
+
+        # Tastings duráveis (F2.5): grava e relê da mesma conexão.
+        await ctx.oltp.add_tasting(
+            TastingNote(
+                id="t1",
+                user_id="u",
+                cigar_id="cigar:cohiba-robustos",
+                rating=5,
+                flavors=["Amadeirado"],
+            )
+        )
+        notes = await ctx.oltp.list_tastings("u", cigar_id="cigar:cohiba-robustos")
+        assert len(notes) == 1 and notes[0].flavors == ["Amadeirado"]
+        assert notes[0].created_at is not None
     finally:
         await ctx.aclose()

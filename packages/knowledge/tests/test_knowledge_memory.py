@@ -97,3 +97,36 @@ async def test_oltp_collection_flow() -> None:
     assert col is not None
     assert len(col.items) == 1
     assert col.items[0].cigar_id == "cigar:cohiba-robustos"
+    # aging (F2.5): a entrada no humidor é carimbada com created_at
+    assert col.items[0].created_at is not None
+
+
+async def test_oltp_tastings_flow() -> None:
+    from charutei_knowledge import TastingNote
+
+    oltp = InMemoryOltp()
+    await oltp.create_user(User(id="u1", email="a@b.com"))
+    saved = await oltp.add_tasting(
+        TastingNote(
+            id="t1",
+            user_id="u1",
+            cigar_id="cigar:cohiba-robustos",
+            rating=5,
+            flavors=["Amadeirado", "Café"],
+            occasion="pós-jantar",
+        )
+    )
+    assert saved.created_at is not None  # carimbado no add
+    await oltp.add_tasting(
+        TastingNote(id="t2", user_id="u1", cigar_id="cigar:montecristo-no-4", rating=3)
+    )
+    await oltp.add_tasting(
+        TastingNote(id="t3", user_id="u2", cigar_id="cigar:cohiba-robustos", rating=4)
+    )
+
+    # isolado por usuário
+    assert {t.id for t in await oltp.list_tastings("u1")} == {"t1", "t2"}
+    # filtro por charuto
+    only = await oltp.list_tastings("u1", cigar_id="cigar:cohiba-robustos")
+    assert [t.id for t in only] == ["t1"]
+    assert only[0].flavors == ["Amadeirado", "Café"]

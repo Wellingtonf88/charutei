@@ -19,6 +19,7 @@ from charutei_knowledge.models import (
     KGEdge,
     KGNode,
     NodeType,
+    TastingNote,
     User,
 )
 from charutei_knowledge.seed import SeedStats, seed_knowledge_graph, slugify
@@ -38,6 +39,7 @@ __all__ = [
     "KGEdge",
     "KGNode",
     "NodeType",
+    "TastingNote",
     "User",
     "SeedStats",
     "seed_knowledge_graph",

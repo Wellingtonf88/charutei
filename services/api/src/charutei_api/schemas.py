@@ -26,6 +26,16 @@ class AskRequest(BaseModel):
     q: str
 
 
+class TastingRequest(BaseModel):
+    """Registro de degustação de um charuto (F2.5)."""
+
+    cigar_id: str
+    rating: int = Field(ge=1, le=5)
+    flavors: list[str] = Field(default_factory=list)
+    occasion: str = ""
+    note: str = ""
+
+
 class CatalogEntry(BaseModel):
     id: str
     label: str

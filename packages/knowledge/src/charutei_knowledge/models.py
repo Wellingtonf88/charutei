@@ -8,6 +8,7 @@ são consumidos pelos repositórios. O grafo é modelado de forma relacional, ma
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
@@ -80,6 +81,7 @@ class CollectionItem(BaseModel):
     collection_id: str
     cigar_id: str
     quantity: int = 1
+    created_at: datetime | None = None  # entrada no humidor — base do aging (F2.5)
 
 
 class Collection(BaseModel):
@@ -87,3 +89,16 @@ class Collection(BaseModel):
     user_id: str
     name: str = "Meu humidor"
     items: list[CollectionItem] = Field(default_factory=list)
+
+
+class TastingNote(BaseModel):
+    """Registro de degustação de um charuto por um usuário (F2.5)."""
+
+    id: str
+    user_id: str
+    cigar_id: str
+    rating: int = Field(ge=1, le=5)
+    flavors: list[str] = Field(default_factory=list)
+    occasion: str = ""
+    note: str = ""
+    created_at: datetime | None = None

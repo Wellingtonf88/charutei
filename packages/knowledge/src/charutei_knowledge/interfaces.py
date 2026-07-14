@@ -15,6 +15,7 @@ from charutei_knowledge.models import (
     CollectionItem,
     KGEdge,
     KGNode,
+    TastingNote,
     User,
 )
 
@@ -84,3 +85,11 @@ class OltpRepository(Protocol):
     async def add_collection_item(self, item: CollectionItem) -> CollectionItem: ...
 
     async def get_collection(self, collection_id: str) -> Collection | None: ...
+
+    async def add_tasting(self, note: TastingNote) -> TastingNote:
+        """Registra uma degustação (rating/sabores/nota) — F2.5."""
+        ...
+
+    async def list_tastings(self, user_id: str, cigar_id: str | None = None) -> list[TastingNote]:
+        """Degustações do usuário (opc. por charuto), mais recentes primeiro."""
+        ...

@@ -19,6 +19,7 @@ from charutei_knowledge.models import (
     KGEdge,
     KGNode,
     NodeType,
+    TastingNote,
     User,
 )
 
@@ -206,13 +207,14 @@ class PostgresOltp:
         return collection
 
     async def add_collection_item(self, item: CollectionItem) -> CollectionItem:
-        await self._conn.execute(
+        cur = await self._conn.execute(
             "INSERT INTO collection_items (id, collection_id, cigar_id, quantity) "
-            "VALUES (%s, %s, %s, %s)",
+            "VALUES (%s, %s, %s, %s) RETURNING created_at",
             (item.id, item.collection_id, item.cigar_id, item.quantity),
         )
+        row = await cur.fetchone()
         await self._conn.commit()
-        return item
+        return item.model_copy(update={"created_at": row[0]}) if row else item
 
     async def get_collection(self, collection_id: str) -> Collection | None:
         cur = await self._conn.execute(
@@ -222,12 +224,58 @@ class PostgresOltp:
         if not row:
             return None
         items_cur = await self._conn.execute(
-            "SELECT id, collection_id, cigar_id, quantity FROM collection_items "
-            "WHERE collection_id = %s",
+            "SELECT id, collection_id, cigar_id, quantity, created_at FROM collection_items "
+            "WHERE collection_id = %s ORDER BY created_at",
             (collection_id,),
         )
         items = [
-            CollectionItem(id=r[0], collection_id=r[1], cigar_id=r[2], quantity=r[3])
+            CollectionItem(
+                id=r[0], collection_id=r[1], cigar_id=r[2], quantity=r[3], created_at=r[4]
+            )
             for r in await items_cur.fetchall()
         ]
         return Collection(id=row[0], user_id=row[1], name=row[2], items=items)
+
+    async def add_tasting(self, note: TastingNote) -> TastingNote:
+        cur = await self._conn.execute(
+            "INSERT INTO tasting_notes "
+            "(id, user_id, cigar_id, rating, flavors, occasion, note) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING created_at",
+            (
+                note.id,
+                note.user_id,
+                note.cigar_id,
+                note.rating,
+                Json(note.flavors),
+                note.occasion,
+                note.note,
+            ),
+        )
+        row = await cur.fetchone()
+        await self._conn.commit()
+        return note.model_copy(update={"created_at": row[0]}) if row else note
+
+    async def list_tastings(self, user_id: str, cigar_id: str | None = None) -> list[TastingNote]:
+        sql = (
+            "SELECT id, user_id, cigar_id, rating, flavors, occasion, note, created_at "
+            "FROM tasting_notes WHERE user_id = %s"
+        )
+        params: list[Any] = [user_id]
+        if cigar_id is not None:
+            sql += " AND cigar_id = %s"
+            params.append(cigar_id)
+        sql += " ORDER BY created_at DESC"
+        cur = await self._conn.execute(sql, tuple(params))
+        return [
+            TastingNote(
+                id=r[0],
+                user_id=r[1],
+                cigar_id=r[2],
+                rating=r[3],
+                flavors=r[4],
+                occasion=r[5],
+                note=r[6],
+                created_at=r[7],
+            )
+            for r in await cur.fetchall()
+        ]

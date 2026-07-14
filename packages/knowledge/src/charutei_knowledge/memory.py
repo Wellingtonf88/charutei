@@ -8,6 +8,7 @@ acesso a dados está atrás de interface (swap sem reescrita).
 from __future__ import annotations
 
 import math
+from datetime import UTC, datetime
 from typing import Any
 
 from charutei_knowledge.models import (
@@ -18,6 +19,7 @@ from charutei_knowledge.models import (
     KGEdge,
     KGNode,
     NodeType,
+    TastingNote,
     User,
 )
 
@@ -118,6 +120,7 @@ class InMemoryOltp:
         self._users: dict[str, User] = {}
         self._bands: dict[str, Band] = {}
         self._collections: dict[str, Collection] = {}
+        self._tastings: list[TastingNote] = []
 
     async def create_user(self, user: User) -> User:
         self._users[user.id] = user
@@ -138,11 +141,29 @@ class InMemoryOltp:
         collection = self._collections.get(item.collection_id)
         if collection is None:
             raise KeyError(f"coleção inexistente: {item.collection_id}")
+        if item.created_at is None:  # carimba a entrada no humidor (aging)
+            item = item.model_copy(update={"created_at": datetime.now(UTC)})
         collection.items.append(item)
         return item
 
     async def get_collection(self, collection_id: str) -> Collection | None:
         return self._collections.get(collection_id)
+
+    async def add_tasting(self, note: TastingNote) -> TastingNote:
+        if note.created_at is None:
+            note = note.model_copy(update={"created_at": datetime.now(UTC)})
+        self._tastings.append(note)
+        return note
+
+    async def list_tastings(self, user_id: str, cigar_id: str | None = None) -> list[TastingNote]:
+        found = [
+            t
+            for t in self._tastings
+            if t.user_id == user_id and (cigar_id is None or t.cigar_id == cigar_id)
+        ]
+        # mais recentes primeiro (created_at sempre setado no add)
+        epoch = datetime.min.replace(tzinfo=UTC)
+        return sorted(found, key=lambda t: t.created_at or epoch, reverse=True)
 
 
 def node_id(node_type: NodeType, slug: str) -> str:

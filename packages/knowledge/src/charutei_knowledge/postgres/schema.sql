@@ -37,6 +37,21 @@ CREATE TABLE IF NOT EXISTS collection_items (
     cigar_id      TEXT NOT NULL,
     quantity      INTEGER NOT NULL DEFAULT 1
 );
+-- Aging (F2.5): quando o charuto entrou no humidor. IF NOT EXISTS mantém apply_schema idempotente.
+ALTER TABLE collection_items ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
+-- Degustações (F2.5): rating/sabores/nota por usuário e charuto.
+CREATE TABLE IF NOT EXISTS tasting_notes (
+    id         TEXT PRIMARY KEY,
+    user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    cigar_id   TEXT NOT NULL,
+    rating     INTEGER NOT NULL,
+    flavors    JSONB NOT NULL DEFAULT '[]',
+    occasion   TEXT NOT NULL DEFAULT '',
+    note       TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_tasting_notes_user_cigar ON tasting_notes (user_id, cigar_id);
 
 -- ---------- Knowledge Graph (relacional) ----------
 CREATE TABLE IF NOT EXISTS kg_nodes (

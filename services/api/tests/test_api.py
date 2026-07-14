@@ -72,7 +72,38 @@ async def test_add_to_collection_and_list(client_ctx) -> None:  # type: ignore[n
     assert len(r.json()["items"]) == 1
 
     r = await client.get("/collection", headers=_AUTH)
-    assert len(r.json()["items"]) == 1
+    body = r.json()
+    assert len(body["items"]) == 1
+    assert body["items"][0]["created_at"]  # aging (F2.5): item carimbado
+
+
+async def test_tasting_requires_auth(client_ctx) -> None:  # type: ignore[no-untyped-def]
+    client, _ = client_ctx
+    r = await client.post("/tasting", json={"cigar_id": "cigar:cohiba-robustos", "rating": 5})
+    assert r.status_code == 401
+
+
+async def test_tasting_create_and_list(client_ctx) -> None:  # type: ignore[no-untyped-def]
+    client, _ = client_ctx
+    r = await client.post(
+        "/tasting",
+        json={
+            "cigar_id": "cigar:cohiba-robustos",
+            "rating": 5,
+            "flavors": ["Amadeirado", "Café"],
+            "occasion": "pós-jantar",
+            "note": "excelente",
+        },
+        headers=_AUTH,
+    )
+    assert r.status_code == 200
+    assert r.json()["created_at"]
+
+    r = await client.get("/tasting?cigar_id=cigar:cohiba-robustos", headers=_AUTH)
+    items = r.json()
+    assert len(items) == 1
+    assert items[0]["rating"] == 5
+    assert items[0]["flavors"] == ["Amadeirado", "Café"]
 
 
 async def test_collection_idempotency(client_ctx) -> None:  # type: ignore[no-untyped-def]
