@@ -1,13 +1,19 @@
 // Ficha do charuto — dados do catálogo + aging (descanso) + registro/histórico de degustações.
 import * as Haptics from "expo-haptics";
-import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useState } from "react";
+import { router, Stack, useLocalSearchParams } from "expo-router";
+import { useState } from "react";
 import { Pressable, View } from "react-native";
 
-import { CatalogEntry, cigarLabel, STRENGTH_PT } from "../../src/api/client";
-import { useAddToCollection, useCatalog } from "../../src/api/hooks";
-import { daysSince, getAddedMap, REST_DAYS } from "../../src/store/aging";
-import { addTasting, FLAVORS, getTastingsFor, Tasting } from "../../src/store/tastings";
+import {
+  CatalogEntry,
+  cigarLabel,
+  CollectionItem,
+  FLAVORS,
+  STRENGTH_PT,
+  TastingNote,
+} from "../../src/api/client";
+import { useAddToCollection, useAddTasting, useCatalog, useCollection, useTastings } from "../../src/api/hooks";
+import { daysSince, REST_DAYS } from "../../src/store/aging";
 import { colors, space } from "../../src/theme";
 import {
   Button,
@@ -41,31 +47,23 @@ export default function CigarDetail() {
   const cigar = cigars.find((c) => c.id === cigarId);
   const title = cigar?.label ?? cigarLabel(cigarId);
 
-  // Estado local (device): aging + degustações deste charuto.
-  const [addedIso, setAddedIso] = useState<string | null>(null);
-  const [tastings, setTastings] = useState<Tasting[]>([]);
+  // Servidor: aging (created_at do item na coleção) + degustações deste charuto.
+  const { data: collection } = useCollection();
+  const items: CollectionItem[] = collection?.items ?? [];
+  const item = items.find((i) => i.cigar_id === cigarId);
+  const tastingsQuery = useTastings(cigarId);
+  const tastings: TastingNote[] = tastingsQuery.data ?? [];
+  const addTasting = useAddTasting();
+
   const [rating, setRating] = useState(0);
   const [flavors, setFlavors] = useState<string[]>([]);
   const [occasion, setOccasion] = useState("");
   const [note, setNote] = useState("");
 
-  const loadLocal = useCallback(async () => {
-    setTastings(await getTastingsFor(cigarId));
-    const map = await getAddedMap();
-    setAddedIso(map[cigarId] ?? null);
-  }, [cigarId]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void loadLocal();
-    }, [loadLocal]),
-  );
-
   async function onAdd() {
     await add.mutateAsync(cigarId);
     setAdded(true);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await loadLocal();
   }
 
   function toggleFlavor(f: string) {
@@ -74,16 +72,15 @@ export default function CigarDetail() {
 
   async function saveTasting() {
     if (rating === 0) return;
-    await addTasting({ cigarId, rating, flavors, occasion: occasion.trim(), note: note.trim() });
+    await addTasting.mutateAsync({ cigarId, rating, flavors, occasion: occasion.trim(), note: note.trim() });
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setRating(0);
     setFlavors([]);
     setOccasion("");
     setNote("");
-    await loadLocal();
   }
 
-  const restDays = addedIso ? daysSince(addedIso) : null;
+  const restDays = item?.created_at ? daysSince(item.created_at) : null;
   const rested = restDays !== null && restDays >= REST_DAYS;
 
   return (
@@ -167,7 +164,12 @@ export default function CigarDetail() {
         </View>
         <Field value={occasion} onChangeText={setOccasion} placeholder="Ocasião (ex.: pós-jantar)" autoCapitalize="sentences" />
         <Field value={note} onChangeText={setNote} placeholder="Nota pessoal…" autoCapitalize="sentences" />
-        <Button title="Salvar degustação" onPress={saveTasting} disabled={rating === 0} />
+        <Button
+          title="Salvar degustação"
+          onPress={saveTasting}
+          disabled={rating === 0}
+          loading={addTasting.isPending}
+        />
       </Card>
 
       {/* Histórico */}
@@ -178,9 +180,11 @@ export default function CigarDetail() {
             <Card key={t.id}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                 <Stars value={t.rating} size={16} />
-                <Text variant="caption" color={colors.textFaint}>
-                  {new Date(t.date).toLocaleDateString("pt-BR")}
-                </Text>
+                {t.created_at && (
+                  <Text variant="caption" color={colors.textFaint}>
+                    {new Date(t.created_at).toLocaleDateString("pt-BR")}
+                  </Text>
+                )}
               </View>
               {t.flavors.length > 0 && (
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>

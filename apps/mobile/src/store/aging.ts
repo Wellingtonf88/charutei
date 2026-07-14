@@ -1,34 +1,17 @@
-// Aging tracker — registra localmente quando cada charuto entrou no humidor e agenda um
-// lembrete de "descanso" (retenção): "seu charuto está pronto". Notificação LOCAL agendada
-// (funciona no Expo Go); push remoto exige dev build (fora do MVP).
+// Aging (F2.5b) — a *data* de entrada no humidor vem do servidor (`collection_item.created_at`);
+// aqui só agendamos o lembrete LOCAL de descanso (retenção). Push remoto = dev build (fora do MVP).
 import * as Notifications from "expo-notifications";
 
 import { cigarLabel } from "../api/client";
-import { loadJSON, saveJSON } from "./local";
 
-const KEY = "charutei.aging"; // { [cigarId]: ISO da 1ª entrada no humidor }
 export const REST_DAYS = 30;
-
-export type AddedMap = Record<string, string>;
-
-export async function getAddedMap(): Promise<AddedMap> {
-  return loadJSON<AddedMap>(KEY, {});
-}
 
 export function daysSince(iso: string): number {
   return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000));
 }
 
-// Registra a entrada (mantém a 1ª data) e agenda o lembrete de descanso.
-export async function recordAdded(cigarId: string): Promise<void> {
-  const map = await getAddedMap();
-  if (map[cigarId]) return;
-  map[cigarId] = new Date().toISOString();
-  await saveJSON(KEY, map);
-  await scheduleRestReminder(cigarId);
-}
-
-async function scheduleRestReminder(cigarId: string): Promise<void> {
+// Agenda "seu charuto descansou" para REST_DAYS após a entrada no humidor.
+export async function scheduleRestReminder(cigarId: string): Promise<void> {
   try {
     const perm = await Notifications.getPermissionsAsync();
     if (!perm.granted) {
@@ -43,6 +26,6 @@ async function scheduleRestReminder(cigarId: string): Promise<void> {
       trigger: { seconds: REST_DAYS * 86_400 },
     });
   } catch {
-    // notificações indisponíveis (ex.: permissão negada) — aging segue funcionando sem lembrete.
+    // notificações indisponíveis — aging segue exibido a partir do servidor.
   }
 }

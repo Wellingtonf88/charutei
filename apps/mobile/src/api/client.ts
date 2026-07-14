@@ -22,6 +22,25 @@ export type CollectionItem = {
   collection_id: string;
   cigar_id: string;
   quantity: number;
+  created_at: string | null; // entrada no humidor (aging, F2.5)
+};
+
+export type TastingNote = {
+  id: string;
+  user_id: string;
+  cigar_id: string;
+  rating: number;
+  flavors: string[];
+  occasion: string;
+  note: string;
+  created_at: string | null;
+};
+export type TastingInput = {
+  cigarId: string;
+  rating: number;
+  flavors: string[];
+  occasion: string;
+  note: string;
 };
 export type Collection = { id: string; user_id: string; name: string; items: CollectionItem[] };
 
@@ -102,6 +121,29 @@ export async function ask(token: string, q: string): Promise<AskResult> {
   return json<AskResult>(res, "assistente");
 }
 
+export async function getTastings(token: string, cigarId?: string): Promise<TastingNote[]> {
+  const qs = cigarId ? `?cigar_id=${encodeURIComponent(cigarId)}` : "";
+  return json<TastingNote[]>(
+    await fetch(`${BASE_URL}/tasting${qs}`, { headers: headers(token) }),
+    "degustações",
+  );
+}
+
+export async function addTasting(token: string, input: TastingInput): Promise<TastingNote> {
+  const res = await fetch(`${BASE_URL}/tasting`, {
+    method: "POST",
+    headers: headers(token),
+    body: JSON.stringify({
+      cigar_id: input.cigarId,
+      rating: input.rating,
+      flavors: input.flavors,
+      occasion: input.occasion,
+      note: input.note,
+    }),
+  });
+  return json<TastingNote>(res, "salvar degustação");
+}
+
 // Slug → rótulo amigável ("cigar:cohiba-siglo-vi" → "Cohiba Siglo Vi").
 export function cigarLabel(id: string): string {
   return id
@@ -125,3 +167,16 @@ export const STRENGTH_PT: Record<string, string> = {
   "medium-full": "Médio-Forte",
   full: "Forte",
 };
+
+export const FLAVORS = [
+  "Amadeirado",
+  "Terroso",
+  "Cremoso",
+  "Café",
+  "Cacau",
+  "Couro",
+  "Pimenta",
+  "Doce",
+  "Cedro",
+  "Frutado",
+];

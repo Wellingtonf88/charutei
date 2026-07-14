@@ -27,6 +27,23 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
 
 ---
 
+## F2.5 — Tasting notes + aging duráveis no backend (✅)
+**Contexto:** promove o engajamento da F2 de local (device) para **estado durável no backend**
+(multi-device, sobrevive a reinstalação). Plan-gated (tocou `packages/knowledge`) — plano aprovado.
+
+**F2.5a — backend:** `CollectionItem.created_at` (aging) + modelo `TastingNote`; `OltpRepository`
+ganha `add_tasting`/`list_tastings` (in-memory + Postgres, mesmo par); `add_collection_item` carimba
+`created_at` (RETURNING no PG). `schema.sql`: `ALTER … ADD created_at` idempotente + tabela
+`tasting_notes` (flavors JSONB) + índice; migração Alembic `0003`. BFF: `POST/GET /tasting` (por
+usuário); `/collection` passa a trazer `created_at`. **pytest 111 passed** (+3) · 7 gates · cov
+**91%** · durável validado ao vivo (Postgres do compose).
+
+**F2.5b — mobile:** client/hooks `getTastings`/`addTasting` + `useTastings`/`useAddTasting`;
+ficha e humidor lêem aging de `created_at` do servidor e degustações via React Query; stores locais
+(`tastings.ts`/`local.ts`) aposentados, `aging.ts` só agenda a push. `tsc` limpo · `expo config` OK.
+
+---
+
 ## F2 — Engajamento & retenção do app mobile (✅)
 **Contexto:** camada que faz o usuário voltar. **Local-first no device** — a versão sincronizada
 no backend (tasting/aging no Postgres) toca `packages/knowledge` → **plan-gated (F2.5)**.

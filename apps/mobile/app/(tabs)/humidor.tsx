@@ -1,22 +1,20 @@
 // Humidor — a coleção do usuário, com aging (descanso) por charuto. Card → ficha.
 import { Link, useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { Pressable, View } from "react-native";
 
 import { cigarLabel, CollectionItem } from "../../src/api/client";
 import { useCollection } from "../../src/api/hooks";
-import { AddedMap, daysSince, getAddedMap, REST_DAYS } from "../../src/store/aging";
+import { daysSince, REST_DAYS } from "../../src/store/aging";
 import { colors, space } from "../../src/theme";
 import { Card, Chip, ErrorText, Screen, Text } from "../../src/ui";
 
 export default function Humidor() {
   const { data, isLoading, isError, error, refetch } = useCollection();
-  const [aging, setAging] = useState<AddedMap>({});
 
   useFocusEffect(
     useCallback(() => {
       void refetch();
-      void getAddedMap().then(setAging);
     }, [refetch]),
   );
 
@@ -47,8 +45,7 @@ export default function Humidor() {
 
       <View style={{ gap: space.md }}>
         {items.map((item: CollectionItem) => {
-          const iso = aging[item.cigar_id];
-          const days = iso ? daysSince(iso) : null;
+          const days = item.created_at ? daysSince(item.created_at) : null;
           const rested = days !== null && days >= REST_DAYS;
           return (
             <Link key={item.id} href={`/cigar/${encodeURIComponent(item.cigar_id)}`} asChild>
