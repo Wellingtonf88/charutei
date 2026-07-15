@@ -27,6 +27,24 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
 
 ---
 
+## F3 — Perfil de paladar, gamificação e compartilhamento (mobile) (✅)
+**Contexto:** camada de fidelização — dá ao usuário identidade e progresso. **Mobile-only, zero
+deps novas**: tudo derivado dos dados que o backend já expõe (`/tasting`, `/collection`, `/catalog`).
+
+**Entregue** (`apps/mobile`):
+- **`src/features/insights.ts`** (puro): `computePalate` (sabores/países/média), `computeLevel`
+  (Novato→Aficionado→Conhecedor→Mestre por pontuação), `computeStreak` (dias seguidos),
+  `computeBadges` (6 conquistas), `shareSummary`.
+- **`useAllTastings`** (todas as degustações do usuário).
+- **Perfil rico**: nível com barra de progresso, estatísticas, paladar (estrelas + top sabores),
+  grade de conquistas (earned/locked) e streak.
+- **Compartilhar** via API `Share` nativa do RN (texto — aquisição orgânica; card-imagem via
+  view-shot = dev build futuro).
+
+**Validação:** `tsc --noEmit` limpo · `expo config` OK. **Simulador pendente.**
+
+---
+
 ## F2.5 — Tasting notes + aging duráveis no backend (✅)
 **Contexto:** promove o engajamento da F2 de local (device) para **estado durável no backend**
 (multi-device, sobrevive a reinstalação). Plan-gated (tocou `packages/knowledge`) — plano aprovado.

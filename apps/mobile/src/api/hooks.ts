@@ -75,13 +75,23 @@ export function useTastings(cigarId: string) {
   });
 }
 
+// Todas as degustações do usuário (perfil de paladar / gamificação — F3).
+export function useAllTastings() {
+  const token = useToken();
+  return useQuery({
+    queryKey: ["tastings", "all"],
+    queryFn: () => getTastings(token),
+  });
+}
+
 export function useAddTasting() {
   const token = useToken();
   const qc = useQueryClient();
   return useMutation<TastingNote, Error, TastingInput>({
     mutationFn: (input) => addTasting(token, input),
-    onSuccess: (_note, input) => {
-      void qc.invalidateQueries({ queryKey: ["tastings", input.cigarId] });
+    onSuccess: () => {
+      // invalida por-charuto e "all" (perfil) de uma vez
+      void qc.invalidateQueries({ queryKey: ["tastings"] });
     },
   });
 }
