@@ -63,11 +63,25 @@ Pré-requisito de tudo que segue, sem valor de produto visível isoladamente:
   "passaporte" (menos barra de progresso, mais dossiê) — trabalho de design, não de dados; o JSX
   desta fase só trocou a fonte do dado.
 
-## PHASE 4 — Location Intelligence
-`LocationRepo` + `GeocodingProvider`/`MapsProvider`/`PlacesProvider` (Protocol + Fake, sem vendor
-escolhido ainda — ADR dedicado no início da fase). Tabelas `establishments`, `product_availability`,
-`user_locations` (opt-in). Endpoint "onde encontro X perto de mim" como primeiro caso de uso completo
-(candidate generation → filtro de distância → filtro de disponibilidade → ranking).
+## PHASE 4 — Location Intelligence (✅ primeiro slice concluído nesta sessão)
+Correção de rota registrada: eu disse antes que essa fase "precisava de decisão de vendor pra
+planejar" — errado. `GeocodingProvider` como Protocol+Fake (mesmo padrão de `LLMProvider`) não
+precisa saber o vendor pra existir, só pra ligar o adaptador real depois.
+
+- ✅ `LocationRepo` (novo Protocol em `packages/knowledge`) + tabelas `establishments`,
+  `product_availability` — migration `0005_location`, primeira desde a Fase 1.
+- ✅ Novo pacote `packages/location`: `haversine_km`+`find_nearby` (candidate generation → filtro
+  de distância → exclui `unavailable` → ranking por confiabilidade+distância) + `GeocodingProvider`
+  Protocol + `FakeGeocodingProvider`.
+- ✅ `POST /establishments`, `POST /establishments/{id}/availability` (usuário comum só reporta
+  `community_reported`/`unavailable`, nunca `confirmed`), `GET /nearby` (lat/lng ou address).
+- **Adiado, com motivo em `docs/DATA_MODEL.md`**: `PlacesProvider` (sem chamador — nada faz
+  descoberta automática ainda), `MapsProvider` (concern client-side, sem backend), `user_locations`
+  persistida (lat/lng por requisição, minimização de dados), adaptador real de geocoding (pendente
+  de decisão de vendor — a única peça que realmente esperava essa decisão), mobile (precisa de
+  `expo-location`, inverificável sem simulador).
+- Validado: pytest (153 passed contra Postgres real, era 146 sem Postgres) · 7 evals PASS · smoke
+  HTTP ao vivo confirmando ranking por distância e exclusão de `unavailable`.
 
 ## PHASE 5 — AI/RAG (separação de corpora)
 Separar Knowledge Base / Community Knowledge (User Data permanece fora do RAG, só SQL/KG). Community

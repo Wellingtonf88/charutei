@@ -20,7 +20,18 @@ from contextlib import asynccontextmanager
 from charutei_contracts import BandImage, BandRecognitionResult, CascadeResult
 from charutei_events import EventType
 from charutei_events.models import Event
-from charutei_knowledge import Band, Collection, CollectionItem, NodeType, TastingNote, User
+from charutei_knowledge import (
+    AvailabilityStatus,
+    Band,
+    Collection,
+    CollectionItem,
+    Establishment,
+    NodeType,
+    ProductAvailability,
+    TastingNote,
+    User,
+)
+from charutei_location import NearbyResult, find_nearby
 from charutei_orchestrator import RequestKind
 from charutei_scoring import (
     compute_badges,
@@ -29,7 +40,7 @@ from charutei_scoring import (
     compute_knowledge_score,
     compute_streak,
 )
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import RequestResponseEndpoint
@@ -41,8 +52,10 @@ from charutei_api.schemas import (
     AskRequest,
     CatalogEntry,
     CreateCollectionRequest,
+    CreateEstablishmentRequest,
     ProfileOut,
     RecognizeRequest,
+    ReportAvailabilityRequest,
     TastingRequest,
 )
 from charutei_api.security import SlidingWindowRateLimiter, cors_origins, rate_limit_config
@@ -364,5 +377,99 @@ def create_app(ctx: AppContext | None = None) -> FastAPI:
         if collection is None:
             return Collection(id=f"col:{user.id}", user_id=user.id)
         return collection
+
+    @app.post("/establishments")
+    async def create_establishment(
+        req: CreateEstablishmentRequest,
+        user: AuthUser = Depends(current_user),
+        ctx: AppContext = Depends(get_ctx),
+    ) -> Establishment:
+        # Proveniência comunitária — nunca marcado como fonte oficial/parceiro nesta fase.
+        est = await ctx.location.create_establishment(
+            Establishment(
+                id=uuid.uuid4().hex,
+                name=req.name,
+                lat=req.lat,
+                lng=req.lng,
+                address=req.address,
+                city=req.city,
+                state=req.state,
+                country=req.country,
+                est_type=req.est_type,
+                source=f"community:{user.id}",
+            )
+        )
+        await ctx.outbox.add(
+            Event(
+                type=EventType.ESTABELECIMENTO_CADASTRADO,
+                payload={"user_id": user.id, "establishment_id": est.id},
+            )
+        )
+        return est
+
+    @app.post("/establishments/{establishment_id}/availability")
+    async def report_availability(
+        establishment_id: str,
+        req: ReportAvailabilityRequest,
+        user: AuthUser = Depends(current_user),
+        ctx: AppContext = Depends(get_ctx),
+    ) -> ProductAvailability:
+        if await ctx.location.get_establishment(establishment_id) is None:
+            raise HTTPException(status_code=404, detail="estabelecimento não encontrado")
+        # Usuário comum só reporta o que observou: "vi lá" ou "conferi e não tinha" — nunca
+        # CONFIRMED, reservado para uma fonte de maior confiança que ainda não existe.
+        status = (
+            AvailabilityStatus.COMMUNITY_REPORTED
+            if req.available
+            else AvailabilityStatus.UNAVAILABLE
+        )
+        availability = await ctx.location.set_availability(
+            ProductAvailability(
+                id=uuid.uuid4().hex,
+                establishment_id=establishment_id,
+                cigar_id=req.cigar_id,
+                status=status,
+                source=f"community:{user.id}",
+                price=req.price,
+                quantity=req.quantity,
+            )
+        )
+        await ctx.outbox.add(
+            Event(
+                type=EventType.DISPONIBILIDADE_REPORTADA,
+                payload={
+                    "user_id": user.id,
+                    "establishment_id": establishment_id,
+                    "cigar_id": req.cigar_id,
+                    "status": str(status),
+                },
+            )
+        )
+        return availability
+
+    @app.get("/nearby")
+    async def nearby(
+        ctx: AppContext = Depends(get_ctx),
+        cigar_id: str = Query(...),
+        lat: float | None = Query(default=None, ge=-90, le=90),
+        lng: float | None = Query(default=None, ge=-180, le=180),
+        address: str | None = Query(default=None),
+        radius_km: float = Query(default=25.0, gt=0, le=200),
+    ) -> list[NearbyResult]:
+        # Sem localização persistida (Fase 4, decisão de escopo): lat/lng por requisição, ou
+        # address resolvido via GeocodingProvider — nunca gravamos onde o usuário está.
+        if lat is None or lng is None:
+            if not address:
+                raise HTTPException(status_code=400, detail="informe lat+lng ou address")
+            resolved = await ctx.geocoding.geocode(address)
+            if resolved is None:
+                raise HTTPException(
+                    status_code=422, detail="não foi possível geocodificar o endereço"
+                )
+            lat, lng = resolved
+
+        establishments = await ctx.location.list_establishments()
+        availability = await ctx.location.list_availability(cigar_id)
+        return find_nearby(establishments, availability, lat=lat, lng=lng, radius_km=radius_km)
 
     return app

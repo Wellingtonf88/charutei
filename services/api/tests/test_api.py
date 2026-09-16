@@ -4,8 +4,13 @@ import httpx
 import pytest
 from charutei_api import build_context, create_app, pump_events
 from charutei_embedding_worker import CIGAR_TEXT_KIND
+from charutei_location import FakeGeocodingProvider
 
 _AUTH = {"Authorization": "Bearer alice"}
+
+# São Paulo e Santos — mesmas coordenadas de referência de packages/location/tests, ~70km reais.
+_SP = {"lat": -23.5505, "lng": -46.6333}
+_SANTOS = {"lat": -23.9608, "lng": -46.3339}
 
 
 @pytest.fixture
@@ -252,6 +257,123 @@ async def test_profile_empty_state(client_ctx) -> None:  # type: ignore[no-untyp
     assert body["total_tastings"] == 0
     assert body["avg_rating"] == 0.0
     assert body["consumer_status"]["name"] == "Novato"
+
+
+async def test_create_establishment_and_report_availability(client_ctx) -> None:  # type: ignore[no-untyped-def]
+    client, _ = client_ctx
+    r = await client.post(
+        "/establishments",
+        json={"name": "Tabacaria Teste", "city": "São Paulo", **_SP},
+        headers=_AUTH,
+    )
+    assert r.status_code == 200
+    est = r.json()
+    assert est["source"] == "community:user:alice"  # proveniência, nunca oculta
+
+    r = await client.post(
+        f"/establishments/{est['id']}/availability",
+        json={"cigar_id": "cigar:cohiba-robustos", "available": True},
+        headers=_AUTH,
+    )
+    assert r.status_code == 200
+    availability = r.json()
+    assert availability["status"] == "community_reported"  # nunca "confirmed" p/ usuário comum
+
+
+async def test_report_availability_unavailable_status(client_ctx) -> None:  # type: ignore[no-untyped-def]
+    client, _ = client_ctx
+    est = (
+        await client.post("/establishments", json={"name": "Loja X", **_SP}, headers=_AUTH)
+    ).json()
+    r = await client.post(
+        f"/establishments/{est['id']}/availability",
+        json={"cigar_id": "cigar:cohiba-robustos", "available": False},
+        headers=_AUTH,
+    )
+    assert r.json()["status"] == "unavailable"
+
+
+async def test_report_availability_unknown_establishment_404(client_ctx) -> None:  # type: ignore[no-untyped-def]
+    client, _ = client_ctx
+    r = await client.post(
+        "/establishments/nao-existe/availability",
+        json={"cigar_id": "cigar:cohiba-robustos"},
+        headers=_AUTH,
+    )
+    assert r.status_code == 404
+
+
+async def test_nearby_filters_by_radius_and_ranks_by_distance(client_ctx) -> None:  # type: ignore[no-untyped-def]
+    client, _ = client_ctx
+    near = (
+        await client.post("/establishments", json={"name": "Perto", **_SP}, headers=_AUTH)
+    ).json()
+    far = (
+        await client.post("/establishments", json={"name": "Longe", **_SANTOS}, headers=_AUTH)
+    ).json()
+    for est in (near, far):
+        await client.post(
+            f"/establishments/{est['id']}/availability",
+            json={"cigar_id": "cigar:cohiba-robustos", "available": True},
+            headers=_AUTH,
+        )
+
+    small = await client.get(
+        "/nearby", params={"cigar_id": "cigar:cohiba-robustos", "radius_km": 10, **_SP}
+    )
+    assert small.status_code == 200
+    assert [r["establishment"]["id"] for r in small.json()] == [near["id"]]
+
+    big = await client.get(
+        "/nearby", params={"cigar_id": "cigar:cohiba-robustos", "radius_km": 200, **_SP}
+    )
+    ids = [r["establishment"]["id"] for r in big.json()]
+    assert ids == [near["id"], far["id"]]  # mais perto primeiro
+
+
+async def test_nearby_excludes_unavailable(client_ctx) -> None:  # type: ignore[no-untyped-def]
+    client, _ = client_ctx
+    est = (
+        await client.post("/establishments", json={"name": "Loja Y", **_SP}, headers=_AUTH)
+    ).json()
+    await client.post(
+        f"/establishments/{est['id']}/availability",
+        json={"cigar_id": "cigar:cohiba-robustos", "available": False},
+        headers=_AUTH,
+    )
+    r = await client.get(
+        "/nearby", params={"cigar_id": "cigar:cohiba-robustos", "radius_km": 50, **_SP}
+    )
+    assert r.json() == []  # nunca apresenta como disponível o que é sabidamente indisponível
+
+
+async def test_nearby_requires_lat_lng_or_address(client_ctx) -> None:  # type: ignore[no-untyped-def]
+    client, _ = client_ctx
+    r = await client.get("/nearby", params={"cigar_id": "cigar:cohiba-robustos"})
+    assert r.status_code == 400
+
+
+async def test_nearby_resolves_address_via_geocoding_provider(client_ctx) -> None:  # type: ignore[no-untyped-def]
+    client, _ = client_ctx
+    address = "Av. Paulista, São Paulo"
+    lat, lng = await FakeGeocodingProvider().geocode(address)  # mesmo provider do ctx (fake)
+    est = (
+        await client.post(
+            "/establishments", json={"name": "Na esquina", "lat": lat, "lng": lng}, headers=_AUTH
+        )
+    ).json()
+    await client.post(
+        f"/establishments/{est['id']}/availability",
+        json={"cigar_id": "cigar:cohiba-robustos", "available": True},
+        headers=_AUTH,
+    )
+
+    r = await client.get(
+        "/nearby",
+        params={"cigar_id": "cigar:cohiba-robustos", "address": address, "radius_km": 1},
+    )
+    assert r.status_code == 200
+    assert [x["establishment"]["id"] for x in r.json()] == [est["id"]]
 
 
 async def test_pump_events_materializes_catalog_embeddings(client_ctx) -> None:  # type: ignore[no-untyped-def]

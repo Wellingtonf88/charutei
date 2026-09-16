@@ -28,8 +28,50 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
 | Upgrade-P1 | Foundations — idempotência durável + config mobile por env | ✅ (parcial) |
 | Upgrade-P2 | Experience Engine — multi-collection + eventos de experiência | ✅ |
 | Upgrade-P3 | Consumer Identity — Km de Fumaça (scoring server-side) | ✅ |
+| Upgrade-P4 | Location Intelligence — estabelecimentos + "onde encontro perto de mim" | ✅ (1º slice) |
 
 ---
+
+## Upgrade Fase 4 — Location Intelligence (✅ primeiro slice)
+**Contexto:** quarta fase do upgrade. O prompt mestre trata isso como feature de primeira classe:
+*"Onde encontro este charuto próximo de mim?"*. Primeira fase 100% greenfield — nenhuma tabela de
+location existia. Também é a correção de um erro meu na sessão anterior: eu disse que essa fase
+"precisava de decisão de vendor de mapas antes de planejar" — não precisava. `GeocodingProvider`
+como Protocol+Fake não depende de saber qual vendor, só o adaptador real depende (e esse fica
+pendente, isolado, sem bloquear o resto). Planejada em modo de planejamento e aprovada antes de
+codar.
+
+**Entregue:**
+- **`LocationRepo`** (novo Protocol em `packages/knowledge`, paralelo a `OltpRepository`): tabelas
+  `establishments` + `product_availability` (migração `0005_location` — primeira desde a Fase 1;
+  Fases 2/3 não precisaram de nenhuma).
+- **`packages/scoring`-style novo pacote `packages/location`** (puro, sem I/O): `haversine_km` +
+  `find_nearby` (candidate generation → filtro de distância → exclui `unavailable` — nunca
+  apresenta como disponível o que é sabidamente indisponível — → ranking por confiabilidade da
+  fonte + distância) e `GeocodingProvider`/`FakeGeocodingProvider` (mesmo padrão de
+  `LLMProvider`/`EmbeddingProvider`).
+- **`POST /establishments`**, **`POST /establishments/{id}/availability`** (usuário comum só
+  reporta `community_reported`/`unavailable`, nunca `confirmed` — reservado para fonte de maior
+  confiança que ainda não existe), **`GET /nearby`** (lat/lng por requisição, ou `address`
+  resolvido via geocoding; nunca localização persistida).
+
+**Decisões de escopo (registradas em `DATA_MODEL.md`):** `PlacesProvider` fora (sem chamador —
+nada faz auto-descoberta de estabelecimentos ainda); `MapsProvider` não existe no backend (deep
+link é concern client-side); sem `user_locations` persistida (minimização de dados); adaptador
+real de `GeocodingProvider` pendente da sua decisão de vendor (Google/Mapbox/Nominatim) — a única
+peça que genuinamente esperava essa decisão; ranking por distância em Python, não SQL geoespacial
+(escala atual não justifica PostGIS/earthdistance); sem mobile (precisa de `expo-location`,
+inverificável sem simulador nesta sessão).
+
+**Testes/evals:** ruff ✓ · format ✓ · mypy ✓ (mesmos 2 erros pré-existentes intocados) ·
+**pytest 153 passed, 9 skipped** contra Postgres real (era 146 passed/16 skipped sem Postgres,
+antes desta fase) · 7 evals PASS.
+
+**Validação real (Postgres vivo, OrbStack):** migração `0005_location` aplicada; smoke HTTP num
+servidor real — 2 estabelecimentos (São Paulo e Santos) com disponibilidade reportada; `GET
+/nearby?radius_km=10` retornou só o de São Paulo (0km) + um de teste a 6.6km; `radius_km=200`
+retornou os três ordenados por distância crescente (0.0, 6.6, 54.9km) — ranking correto ponta a
+ponta, não só nos testes unitários.
 
 ## Upgrade Fase 3 — Consumer Identity / Km de Fumaça (✅)
 **Contexto:** terceira fase do upgrade. Gamificação (F3 mobile) era 100% client-side — débito

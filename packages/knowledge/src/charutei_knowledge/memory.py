@@ -16,9 +16,11 @@ from charutei_knowledge.models import (
     Collection,
     CollectionItem,
     EdgeRel,
+    Establishment,
     KGEdge,
     KGNode,
     NodeType,
+    ProductAvailability,
     TastingNote,
     User,
 )
@@ -174,6 +176,33 @@ class InMemoryOltp:
 
     async def idempotency_mark(self, key: str) -> None:
         self._idempotency_keys.add(key)
+
+
+class InMemoryLocationRepo:
+    """Estabelecimentos + disponibilidade em memória (Fase 4)."""
+
+    def __init__(self) -> None:
+        self._establishments: dict[str, Establishment] = {}
+        self._availability: list[ProductAvailability] = []
+
+    async def create_establishment(self, est: Establishment) -> Establishment:
+        self._establishments[est.id] = est
+        return est
+
+    async def get_establishment(self, establishment_id: str) -> Establishment | None:
+        return self._establishments.get(establishment_id)
+
+    async def list_establishments(self) -> list[Establishment]:
+        return list(self._establishments.values())
+
+    async def set_availability(self, availability: ProductAvailability) -> ProductAvailability:
+        if availability.observed_at is None:
+            availability = availability.model_copy(update={"observed_at": datetime.now(UTC)})
+        self._availability.append(availability)
+        return availability
+
+    async def list_availability(self, cigar_id: str) -> list[ProductAvailability]:
+        return [a for a in self._availability if a.cigar_id == cigar_id]
 
 
 def node_id(node_type: NodeType, slug: str) -> str:

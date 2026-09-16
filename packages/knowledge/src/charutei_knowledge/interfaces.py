@@ -13,8 +13,10 @@ from charutei_knowledge.models import (
     Band,
     Collection,
     CollectionItem,
+    Establishment,
     KGEdge,
     KGNode,
+    ProductAvailability,
     TastingNote,
     User,
 )
@@ -104,4 +106,26 @@ class OltpRepository(Protocol):
 
     async def idempotency_mark(self, key: str) -> None:
         """Registra a Idempotency-Key como processada (idempotente: repetir não é erro)."""
+        ...
+
+
+@runtime_checkable
+class LocationRepo(Protocol):
+    """Estabelecimentos + disponibilidade de produto (Fase 4 — Location Intelligence). Protocol
+    próprio (não enche o OltpRepository) — contexto delimitado, mesmo espírito de
+    KnowledgeGraphRepo/VectorRepository serem interfaces separadas."""
+
+    async def create_establishment(self, est: Establishment) -> Establishment: ...
+
+    async def get_establishment(self, establishment_id: str) -> Establishment | None: ...
+
+    async def list_establishments(self) -> list[Establishment]:
+        """Todos os estabelecimentos — ranking/filtro por distância ficam em packages/location
+        (escala atual não justifica índice geoespacial em SQL; ver DATA_MODEL.md)."""
+        ...
+
+    async def set_availability(self, availability: ProductAvailability) -> ProductAvailability: ...
+
+    async def list_availability(self, cigar_id: str) -> list[ProductAvailability]:
+        """Todos os registros de disponibilidade de um charuto, em qualquer estabelecimento."""
         ...

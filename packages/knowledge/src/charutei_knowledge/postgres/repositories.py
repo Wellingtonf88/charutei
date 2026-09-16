@@ -13,12 +13,15 @@ import psycopg
 from psycopg.types.json import Json
 
 from charutei_knowledge.models import (
+    AvailabilityStatus,
     Band,
     Collection,
     CollectionItem,
+    Establishment,
     KGEdge,
     KGNode,
     NodeType,
+    ProductAvailability,
     TastingNote,
     User,
 )
@@ -303,3 +306,117 @@ class PostgresOltp:
             "INSERT INTO idempotency_keys (key) VALUES (%s) ON CONFLICT DO NOTHING", (key,)
         )
         await self._conn.commit()
+
+
+class PostgresLocationRepo:
+    """LocationRepo sobre `establishments`/`product_availability` (Fase 4)."""
+
+    def __init__(self, conn: psycopg.AsyncConnection[Any]) -> None:
+        self._conn = conn
+
+    async def create_establishment(self, est: Establishment) -> Establishment:
+        await self._conn.execute(
+            """
+            INSERT INTO establishments
+                (id, name, lat, lng, address, city, state, country, est_type, source, confidence)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (id) DO UPDATE SET
+              name = EXCLUDED.name, lat = EXCLUDED.lat, lng = EXCLUDED.lng,
+              address = EXCLUDED.address, city = EXCLUDED.city, state = EXCLUDED.state,
+              country = EXCLUDED.country, est_type = EXCLUDED.est_type,
+              source = EXCLUDED.source, confidence = EXCLUDED.confidence,
+              updated_at = now()
+            """,
+            (
+                est.id,
+                est.name,
+                est.lat,
+                est.lng,
+                est.address,
+                est.city,
+                est.state,
+                est.country,
+                est.est_type,
+                est.source,
+                est.confidence,
+            ),
+        )
+        await self._conn.commit()
+        return est
+
+    async def get_establishment(self, establishment_id: str) -> Establishment | None:
+        cur = await self._conn.execute(
+            "SELECT id, name, lat, lng, address, city, state, country, est_type, source, "
+            "confidence, updated_at FROM establishments WHERE id = %s",
+            (establishment_id,),
+        )
+        row = await cur.fetchone()
+        return self._row_to_establishment(row) if row else None
+
+    async def list_establishments(self) -> list[Establishment]:
+        cur = await self._conn.execute(
+            "SELECT id, name, lat, lng, address, city, state, country, est_type, source, "
+            "confidence, updated_at FROM establishments"
+        )
+        return [self._row_to_establishment(r) for r in await cur.fetchall()]
+
+    async def set_availability(self, availability: ProductAvailability) -> ProductAvailability:
+        cur = await self._conn.execute(
+            """
+            INSERT INTO product_availability
+                (id, establishment_id, cigar_id, status, source, confidence, price, quantity)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING observed_at
+            """,
+            (
+                availability.id,
+                availability.establishment_id,
+                availability.cigar_id,
+                str(availability.status),
+                availability.source,
+                availability.confidence,
+                availability.price,
+                availability.quantity,
+            ),
+        )
+        row = await cur.fetchone()
+        await self._conn.commit()
+        return availability.model_copy(update={"observed_at": row[0]}) if row else availability
+
+    async def list_availability(self, cigar_id: str) -> list[ProductAvailability]:
+        cur = await self._conn.execute(
+            "SELECT id, establishment_id, cigar_id, status, source, confidence, price, "
+            "quantity, observed_at FROM product_availability WHERE cigar_id = %s",
+            (cigar_id,),
+        )
+        return [
+            ProductAvailability(
+                id=r[0],
+                establishment_id=r[1],
+                cigar_id=r[2],
+                status=AvailabilityStatus(r[3]),
+                source=r[4],
+                confidence=r[5],
+                price=r[6],
+                quantity=r[7],
+                observed_at=r[8],
+            )
+            for r in await cur.fetchall()
+        ]
+
+    @staticmethod
+    def _row_to_establishment(row: tuple[Any, ...]) -> Establishment:
+        return Establishment(
+            id=row[0],
+            name=row[1],
+            lat=row[2],
+            lng=row[3],
+            address=row[4],
+            city=row[5],
+            state=row[6],
+            country=row[7],
+            est_type=row[8],
+            source=row[9],
+            confidence=row[10],
+            updated_at=row[11],
+        )

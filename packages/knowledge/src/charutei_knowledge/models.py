@@ -102,3 +102,49 @@ class TastingNote(BaseModel):
     occasion: str = ""
     note: str = ""
     created_at: datetime | None = None
+
+
+# --- Location (Fase 4 do upgrade) ---
+
+
+class AvailabilityStatus(StrEnum):
+    """Nunca trate 'estabelecimento existe' como 'produto disponível' (prompt mestre §10)."""
+
+    CONFIRMED = "confirmed"
+    RECENTLY_CONFIRMED = "recently_confirmed"
+    COMMUNITY_REPORTED = "community_reported"
+    UNKNOWN = "unknown"
+    UNAVAILABLE = "unavailable"
+
+
+class Establishment(BaseModel):
+    """Tabacaria/loja/distribuidor. OLTP, não KG — campos operacionais mutáveis (endereço,
+    confiança) em vez de fatos estáveis do domínio de charutos."""
+
+    id: str
+    name: str
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    address: str = ""
+    city: str = ""
+    state: str = ""
+    country: str = ""
+    est_type: str = "tabacaria"
+    source: str = ""  # proveniência (ex.: "community:{user_id}") — nunca oculta a origem do dado
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    updated_at: datetime | None = None
+
+
+class ProductAvailability(BaseModel):
+    """Disponibilidade de um charuto num estabelecimento — entidade própria, nunca inferida da
+    mera existência do estabelecimento."""
+
+    id: str
+    establishment_id: str
+    cigar_id: str
+    status: AvailabilityStatus = AvailabilityStatus.UNKNOWN
+    source: str = ""
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    price: float | None = None
+    quantity: int | None = None
+    observed_at: datetime | None = None

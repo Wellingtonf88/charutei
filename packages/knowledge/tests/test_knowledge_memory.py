@@ -1,13 +1,17 @@
 """Testes da camada de conhecimento (implementação in-memory) + seed real."""
 
 from charutei_knowledge import (
+    AvailabilityStatus,
     Band,
     Collection,
     CollectionItem,
+    Establishment,
     InMemoryKnowledgeGraph,
+    InMemoryLocationRepo,
     InMemoryOltp,
     InMemoryVectorRepository,
     NodeType,
+    ProductAvailability,
     User,
     node_id,
     seed_knowledge_graph,
@@ -154,3 +158,27 @@ async def test_oltp_idempotency_keys() -> None:
     # marcar de novo não é erro (idempotente)
     await oltp.idempotency_mark("key-1")
     assert await oltp.idempotency_seen("key-2") is False
+
+
+async def test_location_repo_establishments_and_availability() -> None:
+    repo = InMemoryLocationRepo()
+    est = await repo.create_establishment(
+        Establishment(id="est-1", name="Tabacaria Teste", lat=-23.5, lng=-46.6, city="São Paulo")
+    )
+    assert est.id == "est-1"
+    assert [e.id for e in await repo.list_establishments()] == ["est-1"]
+
+    saved = await repo.set_availability(
+        ProductAvailability(
+            id="avail-1",
+            establishment_id="est-1",
+            cigar_id="cigar:cohiba-robustos",
+            status=AvailabilityStatus.COMMUNITY_REPORTED,
+        )
+    )
+    assert saved.observed_at is not None  # carimbado no set (mesmo padrão de created_at)
+
+    found = await repo.list_availability("cigar:cohiba-robustos")
+    assert len(found) == 1
+    assert found[0].status == AvailabilityStatus.COMMUNITY_REPORTED
+    assert await repo.list_availability("cigar:nada-aqui") == []

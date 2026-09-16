@@ -6,6 +6,7 @@ Importado sob demanda (requer o extra `postgres`: psycopg, pgvector). Mantido FO
 
 from charutei_knowledge.postgres.repositories import (
     PostgresKnowledgeGraph,
+    PostgresLocationRepo,
     PostgresOltp,
     PostgresVectorRepository,
     apply_schema,
@@ -13,6 +14,7 @@ from charutei_knowledge.postgres.repositories import (
 
 __all__ = [
     "PostgresKnowledgeGraph",
+    "PostgresLocationRepo",
     "PostgresOltp",
     "PostgresVectorRepository",
     "apply_schema",

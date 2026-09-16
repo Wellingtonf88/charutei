@@ -31,14 +31,17 @@ from charutei_events import (
 )
 from charutei_knowledge import (
     InMemoryKnowledgeGraph,
+    InMemoryLocationRepo,
     InMemoryOltp,
     InMemoryVectorRepository,
     KnowledgeGraphRepo,
+    LocationRepo,
     NodeType,
     OltpRepository,
     VectorRepository,
     seed_knowledge_graph,
 )
+from charutei_location import GeocodingProvider, build_geocoding_provider
 from charutei_orchestrator import (
     AgentRegistry,
     FakeTracer,
@@ -69,6 +72,8 @@ class AppContext:
     bus: EventBus
     embedding_worker: EmbeddingWorker
     vector_repo: VectorRepository
+    location: LocationRepo
+    geocoding: GeocodingProvider
     conn: Any = None  # conexão Postgres (None em modo in-memory) — fechada por aclose()
 
     async def aclose(self) -> None:
@@ -133,6 +138,16 @@ async def build_context(auth: AuthProvider | None = None) -> AppContext:
     kg, oltp, outbox, processed_registry, conn = await (
         _build_durable(dsn) if dsn else _build_memory()
     )
+
+    # LocationRepo (Fase 4): sem seed — estabelecimentos só existem quando reportados de verdade
+    # (POST /establishments), nunca fabricados.
+    location: LocationRepo
+    if conn is not None:
+        from charutei_knowledge.postgres import PostgresLocationRepo
+
+        location = PostgresLocationRepo(conn)
+    else:
+        location = InMemoryLocationRepo()
 
     # Índices derivados (in-memory, reconstruídos do KG): catálogo vetorial do reconhecimento.
     image_embed, ocr, vision = build_band_providers()
@@ -204,6 +219,8 @@ async def build_context(auth: AuthProvider | None = None) -> AppContext:
         bus=bus,
         embedding_worker=embedding_worker,
         vector_repo=vector_repo,
+        location=location,
+        geocoding=build_geocoding_provider(),
         conn=conn,
     )
 

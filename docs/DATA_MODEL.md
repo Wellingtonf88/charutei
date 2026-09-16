@@ -1,7 +1,7 @@
-# DATA_MODEL — Fases 2 e 3 (Experience Engine + Consumer Identity)
+# DATA_MODEL — Fases 2, 3 e 4 (Experience Engine + Consumer Identity + Location Intelligence)
 
-Schema exato após as Fases 2 e 3 do upgrade (ver `docs/IMPLEMENTATION_ROADMAP.md`). Complementa o
-inventário do `docs/PROJECT_UPGRADE_AUDIT.md` §4 com o que mudou em cada fase.
+Schema exato após as Fases 2, 3 e 4 do upgrade (ver `docs/IMPLEMENTATION_ROADMAP.md`). Complementa
+o inventário do `docs/PROJECT_UPGRADE_AUDIT.md` §4 com o que mudou em cada fase.
 
 ## Fase 2 (Experience Engine)
 
@@ -116,3 +116,56 @@ de status mais devagar que um com atividade moderada e degustações bem documen
 `apps/mobile/app/(tabs)/profile.tsx` trocou o cálculo local (`insights.ts`) por `useProfile()` →
 `GET /profile`. `insights.ts` perdeu `computePalate/computeLevel/computeStreak/computeBadges`
 (agora no backend); mantém só `shareSummary` (formatação de texto para o Share nativo).
+
+## Fase 4 (Location Intelligence)
+
+Primeira fase 100% greenfield — nenhuma tabela/endpoint de location existia antes. **Primeira
+migration desde a Fase 1** (`0005_location`); as Fases 2/3 não precisaram de nenhuma.
+
+### Tabelas novas
+
+- `establishments` (OLTP, não KG — campos operacionais mutáveis): id, name, lat, lng, address,
+  city, state, country, est_type, source, confidence, updated_at.
+- `product_availability` (FK → establishments): id, establishment_id, cigar_id, status, source,
+  confidence, price?, quantity?, observed_at. **Entidade própria, nunca inferida da mera
+  existência do estabelecimento** — "estabelecimento existe" ≠ "produto disponível" (prompt mestre
+  §10). `status` ∈ `confirmed / recently_confirmed / community_reported / unknown / unavailable`.
+
+Novo `LocationRepo` (Protocol próprio em `packages/knowledge`, paralelo a
+`OltpRepository`/`KnowledgeGraphRepo`/`VectorRepository` — não enche o `OltpRepository`).
+
+### Novo pacote `packages/location` (puro + abstração de provedor externo)
+
+- `haversine_km` + `find_nearby`: candidate generation (quem tem disponibilidade pro `cigar_id`) →
+  filtro de distância → exclui `unavailable` → ranking por `(confiabilidade da fonte, distância)`.
+  **Cálculo em Python, não SQL geoespacial** — a tabela começa vazia; PostGIS/earthdistance é o
+  follow-up de escala óbvio (mesma disciplina do índice HNSW adiado na Fase 1).
+- `GeocodingProvider` (Protocol) + `FakeGeocodingProvider` (determinístico, hash→coordenadas) —
+  mesmo padrão de `LLMProvider`/`EmbeddingProvider` em `services/orchestrator/providers.py`.
+  **Adaptador real pendente de decisão de vendor** (Google Geocoding? Mapbox? Nominatim/OSM?) —
+  decisão de negócio/custo, não técnica; liga depois sem tocar em mais nada (`RealGeocodingProvider`
+  hoje levanta `NotImplementedError` com mensagem clara).
+
+### Endpoints novos
+
+| Endpoint | Auth | O quê |
+|---|---|---|
+| `POST /establishments` | sim | Cria estabelecimento, `source="community:{user_id}"` |
+| `POST /establishments/{id}/availability` | sim | Reporta disponibilidade — só `available: bool`; usuário comum nunca marca `confirmed` |
+| `GET /nearby` | não (como `/catalog`) | `cigar_id` + (`lat`+`lng` OU `address` via geocoding) + `radius_km` (padrão 25, máx 200) |
+
+Novos `EventType`: `estabelecimento.cadastrado`, `disponibilidade.reportada`.
+
+### Deliberadamente fora desta fase
+
+- **`PlacesProvider`**: existiria para auto-descobrir estabelecimentos via API de terceiro — nada
+  nesta fase faz descoberta automática ainda (cadastro é manual/comunitário). Sem chamador, não
+  construído.
+- **`MapsProvider`**: gerar link pra abrir no app de mapas é concern 100% client-side, sem
+  abstração de backend.
+- **`user_locations` persistida**: `GET /nearby` recebe `lat`/`lng` por requisição, nunca grava
+  onde o usuário está (minimização de dados, prompt mestre §11). Localização persistida (ex.: para
+  notificar restock) é follow-up quando houver razão de produto concreta.
+- **Mobile**: precisaria de `expo-location` + fluxo de permissão nativa, inverificável sem
+  simulador/device nesta sessão (mesmo motivo da auth Supabase real na Fase 1). Backend completo e
+  testado agora; tela de mapa é o próximo passo natural.

@@ -47,6 +47,7 @@ members = [
     "packages/cache",
     "packages/events",
     "packages/scoring",
+    "packages/location",
     "services/api",
     "services/orchestrator",
     "services/agents/band_recognition",

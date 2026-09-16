@@ -60,6 +60,38 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Location Intelligence (Fase 4). OLTP, não KG — campos operacionais mutáveis (endereço,
+-- confiança), não fatos estáveis do domínio de charutos.
+CREATE TABLE IF NOT EXISTS establishments (
+    id         TEXT PRIMARY KEY,
+    name       TEXT NOT NULL,
+    lat        DOUBLE PRECISION NOT NULL,
+    lng        DOUBLE PRECISION NOT NULL,
+    address    TEXT NOT NULL DEFAULT '',
+    city       TEXT NOT NULL DEFAULT '',
+    state      TEXT NOT NULL DEFAULT '',
+    country    TEXT NOT NULL DEFAULT '',
+    est_type   TEXT NOT NULL DEFAULT 'tabacaria',
+    source     TEXT NOT NULL DEFAULT '',
+    confidence DOUBLE PRECISION NOT NULL DEFAULT 1.0,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Disponibilidade de produto — entidade própria, nunca inferida da mera existência do
+-- estabelecimento (prompt mestre §10: "estabelecimento existe" ≠ "produto disponível").
+CREATE TABLE IF NOT EXISTS product_availability (
+    id               TEXT PRIMARY KEY,
+    establishment_id TEXT NOT NULL REFERENCES establishments(id) ON DELETE CASCADE,
+    cigar_id         TEXT NOT NULL,
+    status           TEXT NOT NULL DEFAULT 'unknown',
+    source           TEXT NOT NULL DEFAULT '',
+    confidence       DOUBLE PRECISION NOT NULL DEFAULT 1.0,
+    price            DOUBLE PRECISION,
+    quantity         INTEGER,
+    observed_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_product_availability_cigar ON product_availability (cigar_id);
+
 -- ---------- Knowledge Graph (relacional) ----------
 CREATE TABLE IF NOT EXISTS kg_nodes (
     id    TEXT PRIMARY KEY,            -- canônico: '<type>:<slug>'

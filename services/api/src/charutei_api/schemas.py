@@ -53,6 +53,31 @@ class CatalogEntry(BaseModel):
     pairings: list[str] = Field(default_factory=list)
 
 
+class CreateEstablishmentRequest(BaseModel):
+    """Cadastro de estabelecimento (Fase 4 — Location Intelligence). Sempre `source` de
+    proveniência comunitária no handler — nunca marcado como fonte oficial/parceiro nesta fase."""
+
+    name: str
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    address: str = ""
+    city: str = ""
+    state: str = ""
+    country: str = ""
+    est_type: str = "tabacaria"
+
+
+class ReportAvailabilityRequest(BaseModel):
+    """Reporte de disponibilidade por um usuário comum: só pode dizer "vi lá" (`available=True`,
+    vira COMMUNITY_REPORTED) ou "conferi e não tinha" (`available=False`, vira UNAVAILABLE) —
+    nunca CONFIRMED, reservado para uma fonte de maior confiança que ainda não existe."""
+
+    cigar_id: str
+    available: bool = True
+    price: float | None = None
+    quantity: int | None = None
+
+
 class ProfileOut(BaseModel):
     """Passaporte de experiências (Fase 3 do upgrade — Km de Fumaça). REPUTATION_SCORE e
     INFLUENCE_SCORE não aparecem aqui: dependem de sinal social que só existe a partir da Fase 7
