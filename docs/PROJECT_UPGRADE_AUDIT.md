@@ -153,9 +153,18 @@ ambos em `scripts/langfuse_demo.py` (script de demo, não biblioteca).
 10. **Achado durante a Fase 1**: `vector_repo` (embeddings de `cigar_text`/`band`) continua
     `InMemoryVectorRepository` mesmo em modo Postgres — agora que o worker efetivamente materializa
     embeddings (item 1b corrigido), eles são perdidos a cada restart do BFF. Não bloqueia a Fase 1
-    (o gargalo corrigido era "nunca materializa", não "materializa mas não persiste"), mas é o
-    próximo item natural: trocar por `PostgresVectorRepository` (já existe, testado) quando
-    `DATABASE_URL` está setado, mesmo padrão de `kg`/`oltp`/`outbox`.
+    (o gargalo corrigido era "nunca materializa", não "materializa mas não persiste").
+    **Investigado, não é uma troca de uma linha**: a mesma instância de `vector_repo` serve dois
+    usos com ciclos de vida diferentes — (a) o catálogo de banda (`BAND_KIND`, via
+    `build_band_catalog`) é **deliberadamente** reconstruído do zero a cada boot (documentado em
+    `context.py`: "não são estado durável, são cache de recuperação") e roda **incondicionalmente**,
+    fora do guard `if not kg.nodes_by_type(CIGAR)`; (b) os embeddings `cigar_text` do worker
+    (`CIGAR_TEXT_KIND`) são de fato event-driven e só regenerados quando `sku.detectado` é reemitido
+    (ou seja, só no primeiro boot com KG vazio, em modo durável). Trocar ingenuamente `vector_repo`
+    por `PostgresVectorRepository` faria (a) reprocessar ~410 chamadas reais ao provider de imagem
+    a cada restart do BFF (custo/latência real com `USE_FAKE_PROVIDERS=false`), contradizendo o
+    design documentado. Fix correto: dois repositórios (BAND_KIND in-memory sempre; CIGAR_TEXT_KIND
+    Postgres quando durável) — vira slice própria, não uma correção pontual.
 
 ## 12. Riscos
 
