@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections import deque
 
+from charutei_events.interfaces import EventBus
 from charutei_events.models import DeadLetter, Delivery, Event
 from charutei_events.retry import RetryPolicy
 
@@ -56,7 +57,7 @@ class InMemoryOutbox:
     async def add(self, event: Event) -> None:
         self._pending.append(event)
 
-    async def publish_pending(self, bus: InMemoryEventBus, batch: int = 100) -> int:
+    async def publish_pending(self, bus: EventBus, batch: int = 100) -> int:
         to_publish = self._pending[:batch]
         for event in to_publish:
             await bus.publish(event)

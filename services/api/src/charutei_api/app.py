@@ -10,6 +10,9 @@ ligados ao event loop do servidor (ex.: conexão Postgres), fechados no shutdown
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
+import os
 import uuid
 from contextlib import asynccontextmanager
 
@@ -24,7 +27,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import RequestResponseEndpoint
 
 from charutei_api.auth import AuthUser
-from charutei_api.context import AppContext, build_context
+from charutei_api.context import AppContext, build_context, pump_events
 from charutei_api.schemas import (
     AddItemRequest,
     AskRequest,
@@ -33,6 +36,18 @@ from charutei_api.schemas import (
     TastingRequest,
 )
 from charutei_api.security import SlidingWindowRateLimiter, cors_origins, rate_limit_config
+
+# Intervalo do loop de fundo que publica o outbox e materializa embeddings (pump_events).
+# Só o BFF é implantado hoje (sem worker separado) — ver PROJECT_UPGRADE_AUDIT.md.
+_EVENT_PUMP_INTERVAL_S = float(os.environ.get("CHARUTEI_EVENT_PUMP_INTERVAL_S", "5"))
+
+
+async def _event_pump_loop(ctx: AppContext, interval_s: float) -> None:
+    while True:
+        # Falha não derruba o servidor — a próxima iteração tenta de novo.
+        with contextlib.suppress(Exception):
+            await pump_events(ctx)
+        await asyncio.sleep(interval_s)
 
 
 def create_app(ctx: AppContext | None = None) -> FastAPI:
@@ -43,9 +58,15 @@ def create_app(ctx: AppContext | None = None) -> FastAPI:
         owns = app.state.ctx is None
         if owns:
             app.state.ctx = await build_context()
+        # Loop de fundo: publica o outbox pendente e materializa embeddings (pump_events).
+        # Não roda sob ASGITransport (testes não executam lifespan) — mesmo padrão do `owns` acima.
+        pump_task = asyncio.create_task(_event_pump_loop(app.state.ctx, _EVENT_PUMP_INTERVAL_S))
         try:
             yield
         finally:
+            pump_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await pump_task
             if owns:
                 await app.state.ctx.aclose()
 
@@ -197,8 +218,12 @@ def create_app(ctx: AppContext | None = None) -> FastAPI:
         if await ctx.oltp.get_collection(col_id) is None:
             await ctx.oltp.create_collection(Collection(id=col_id, user_id=user.id))
 
-        # Idempotência: a mesma Idempotency-Key não adiciona o item duas vezes.
-        if idempotency_key is None or idempotency_key not in ctx.idempotency_keys:
+        # Idempotência: a mesma Idempotency-Key não adiciona o item duas vezes. Durável
+        # (Postgres) e multi-réplica — não usa mais um `set` em memória do processo.
+        already_seen = idempotency_key is not None and await ctx.oltp.idempotency_seen(
+            idempotency_key
+        )
+        if not already_seen:
             await ctx.oltp.add_collection_item(
                 CollectionItem(
                     id=uuid.uuid4().hex,
@@ -208,7 +233,7 @@ def create_app(ctx: AppContext | None = None) -> FastAPI:
                 )
             )
             if idempotency_key is not None:
-                ctx.idempotency_keys.add(idempotency_key)
+                await ctx.oltp.idempotency_mark(idempotency_key)
             await ctx.outbox.add(
                 Event(
                     type=EventType.COLECAO_ALTERADA,

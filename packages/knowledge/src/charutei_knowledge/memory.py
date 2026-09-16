@@ -121,6 +121,7 @@ class InMemoryOltp:
         self._bands: dict[str, Band] = {}
         self._collections: dict[str, Collection] = {}
         self._tastings: list[TastingNote] = []
+        self._idempotency_keys: set[str] = set()
 
     async def create_user(self, user: User) -> User:
         self._users[user.id] = user
@@ -164,6 +165,12 @@ class InMemoryOltp:
         # mais recentes primeiro (created_at sempre setado no add)
         epoch = datetime.min.replace(tzinfo=UTC)
         return sorted(found, key=lambda t: t.created_at or epoch, reverse=True)
+
+    async def idempotency_seen(self, key: str) -> bool:
+        return key in self._idempotency_keys
+
+    async def idempotency_mark(self, key: str) -> None:
+        self._idempotency_keys.add(key)
 
 
 def node_id(node_type: NodeType, slug: str) -> str:

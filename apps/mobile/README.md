@@ -9,14 +9,15 @@ verdade a partir da F0: **expo-router** (abas), **design system** próprio, **Re
 # 1. Suba o BFF (na raiz do repo)
 uv run --extra serve uvicorn charutei_api.main:app --port 8000
 
-# 2. Instale e rode o app
+# 2. Configure a URL da API (por ambiente, nunca hardcoded)
 cd apps/mobile
+cp .env.example .env     # ajuste EXPO_PUBLIC_API_BASE_URL: simulador usa localhost,
+                          # device físico usa o IP da sua máquina
+
+# 3. Instale e rode o app
 npm install
 npx expo start           # Expo Go (iOS/Android) ou simulador
 ```
-
-Configure a URL da API em `app.json` (`extra.apiBaseUrl`). Simulador iOS: `http://localhost:8000`;
-device físico: o IP da sua máquina.
 
 ## Arquitetura (F0)
 ```

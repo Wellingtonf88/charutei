@@ -279,3 +279,13 @@ class PostgresOltp:
             )
             for r in await cur.fetchall()
         ]
+
+    async def idempotency_seen(self, key: str) -> bool:
+        cur = await self._conn.execute("SELECT 1 FROM idempotency_keys WHERE key = %s", (key,))
+        return await cur.fetchone() is not None
+
+    async def idempotency_mark(self, key: str) -> None:
+        await self._conn.execute(
+            "INSERT INTO idempotency_keys (key) VALUES (%s) ON CONFLICT DO NOTHING", (key,)
+        )
+        await self._conn.commit()

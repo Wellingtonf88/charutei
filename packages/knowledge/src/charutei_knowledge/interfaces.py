@@ -93,3 +93,11 @@ class OltpRepository(Protocol):
     async def list_tastings(self, user_id: str, cigar_id: str | None = None) -> list[TastingNote]:
         """Degustações do usuário (opc. por charuto), mais recentes primeiro."""
         ...
+
+    async def idempotency_seen(self, key: str) -> bool:
+        """Já vimos esta Idempotency-Key? Usado para deduplicar escritas HTTP repetidas."""
+        ...
+
+    async def idempotency_mark(self, key: str) -> None:
+        """Registra a Idempotency-Key como processada (idempotente: repetir não é erro)."""
+        ...

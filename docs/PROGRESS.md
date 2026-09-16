@@ -24,8 +24,55 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
 | S15 | Multi-agêntico — Supervisor (roteador determinístico) + gating | ✅ |
 | S16 | Multi-agêntico — laço ligado no Assistant + /ask + eval | ✅ |
 | S11 | Auth real — SupabaseAuthProvider (JWT HS256) | ✅ |
+| Upgrade-P0 | Auditoria (Consumer Intelligence Platform) — 3 docs pré-código | ✅ |
+| Upgrade-P1 | Foundations — idempotência durável + config mobile por env | ✅ (parcial) |
 
 ---
+
+## Upgrade Fase 0+1 — Auditoria + débito técnico bloqueante (✅ parcial)
+**Contexto:** início do upgrade arquitetural para "Consumer Intelligence Platform" (Consumer Graph,
+Location Intelligence, Recommendation Engine, Km de Fumaça). Fase 0 é obrigatória antes de qualquer
+código: auditar o que já existe para não recriar. Fase 1 é débito técnico bloqueante, sem decisão de
+negócio pendente.
+
+**Fase 0 — Entregue:** `docs/PROJECT_UPGRADE_AUDIT.md` (inventário completo de tabelas/APIs/agentes
+já existentes, via 2 agentes de exploração lendo backend e mobile ponta a ponta), `docs/TARGET_ARCHITECTURE.md`
+(estende o que existe — Consumer Graph = `kg_nodes/kg_edges` + novos tipos, não um grafo novo),
+`docs/IMPLEMENTATION_ROADMAP.md` (10 fases, começando pelo débito técnico sem dependência de negócio).
+
+**Fase 1 — Entregue:**
+- **Idempotency-key durável**: `OltpRepository.idempotency_seen/idempotency_mark` (Protocol +
+  in-memory + Postgres), tabela `idempotency_keys` (migração `0004_idempotency`), substitui o `set`
+  em memória de `POST /collection/items` que não sobrevivia a restart/réplica.
+- **Config mobile por ambiente**: `EXPO_PUBLIC_API_BASE_URL` (`.env`, padrão Expo) substitui o IP de
+  LAN hardcoded em `app.json`.
+- **Pipeline de eventos** (achado durante a implementação, corrigido na mesma sessão): o outbox era
+  sempre em memória mesmo com Postgres ligado, `publish_pending()` nunca era chamado em produção, e
+  `CatalogIngestor` não recebia `outbox` (então `sku.detectado` nunca era emitido). Agora
+  `PostgresOutbox`/`PostgresProcessedRegistry` são usados quando `DATABASE_URL` está setado, e o
+  `EmbeddingWorker` roda dentro do próprio processo do BFF via loop de fundo no lifespan do FastAPI
+  (`pump_events`, a cada `CHARUTEI_EVENT_PUMP_INTERVAL_S`s, default 5) — decisão registrada: in-process
+  é consistente com a topologia atual (um único container); vira serviço separado só quando houver
+  2ª réplica.
+
+**Testes/evals:** ruff ✓ · format ✓ · mypy ✓ (mesmos 2 erros pré-existentes em `scripts/langfuse_demo.py`,
+não tocados; corrigido de passagem um erro real de variância de tipo em `InMemoryOutbox.publish_pending`
+descoberto pelo mypy ao tipar `outbox` como `Outbox` (Protocol) em vez de concreto) ·
+**pytest 118 passed, 9 skipped** contra Postgres real (era 111 passed/12 skipped antes desta sessão) ·
+7 evals PASS · `tsc --noEmit` e `expo config` limpos no mobile.
+
+**Validação real (Postgres vivo, OrbStack):**
+- Migração `0004_idempotency` aplicada; smoke test HTTP confirmou que a mesma `Idempotency-Key` não
+  duplica item de coleção **mesmo após matar e reiniciar o processo do BFF**.
+- Pipeline de eventos: **386 eventos `sku.detectado`** presos no outbox (de um teste de integração
+  anterior) foram **drenados em 8 segundos** por um servidor real rodando contra o Postgres, sem
+  erros, com shutdown gracioso do loop de fundo (`asyncio.Task.cancel()` limpo, sem warnings).
+
+**Pendências da Fase 1 (não corrigidas nesta sessão, com motivo registrado em
+`IMPLEMENTATION_ROADMAP.md`):** índice HNSW em `embeddings` (bloqueado — dimensão real do Voyage-4
+não pode ser fabricada); auth Supabase real no mobile (feature de UI nova, não verificável sem
+simulador/device nesta sessão); durabilidade dos embeddings materializados (`vector_repo` continua
+in-memory mesmo em modo Postgres — achado novo, registrado no audit, não bloqueante para esta fase).
 
 ## F3 — Perfil de paladar, gamificação e compartilhamento (mobile) (✅)
 **Contexto:** camada de fidelização — dá ao usuário identidade e progresso. **Mobile-only, zero

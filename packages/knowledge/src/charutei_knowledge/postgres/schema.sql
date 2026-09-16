@@ -53,6 +53,13 @@ CREATE TABLE IF NOT EXISTS tasting_notes (
 );
 CREATE INDEX IF NOT EXISTS idx_tasting_notes_user_cigar ON tasting_notes (user_id, cigar_id);
 
+-- Idempotency-Key de escritas HTTP (ex.: POST /collection/items). Durável e multi-réplica —
+-- substitui o `set` em memória que não sobrevivia a restart (débito da Fase 1 do upgrade).
+CREATE TABLE IF NOT EXISTS idempotency_keys (
+    key        TEXT PRIMARY KEY,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ---------- Knowledge Graph (relacional) ----------
 CREATE TABLE IF NOT EXISTS kg_nodes (
     id    TEXT PRIMARY KEY,            -- canônico: '<type>:<slug>'

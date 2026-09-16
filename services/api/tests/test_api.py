@@ -2,7 +2,8 @@
 
 import httpx
 import pytest
-from charutei_api import build_context, create_app
+from charutei_api import build_context, create_app, pump_events
+from charutei_embedding_worker import CIGAR_TEXT_KIND
 
 _AUTH = {"Authorization": "Bearer alice"}
 
@@ -114,3 +115,27 @@ async def test_collection_idempotency(client_ctx) -> None:  # type: ignore[no-un
     second = await client.post("/collection/items", json=body, headers=headers)
     assert first.status_code == second.status_code == 200
     assert len(second.json()["items"]) == 1  # não duplicou
+
+
+async def test_pump_events_materializes_catalog_embeddings(client_ctx) -> None:  # type: ignore[no-untyped-def]
+    """Fase 1: o pipeline outbox→bus→worker estava desconectado (achado do audit) — a ingestão
+    do catálogo no boot já enfileira `sku.detectado`; pump_events publica e materializa os
+    embeddings de texto. Sem esse fix, `ctx.vector_repo` nunca teria entradas `cigar_text`."""
+    _, ctx = client_ctx
+    await pump_events(ctx)
+    hits = await ctx.vector_repo.ann_search(CIGAR_TEXT_KIND, [1.0] * 64, k=1)
+    assert len(hits) == 1
+
+
+async def test_pump_events_ignores_unhandled_event_types(client_ctx) -> None:  # type: ignore[no-untyped-def]
+    """anilha.cadastrada/colecao.alterada (emitidos pela API) não são tipos que o
+    EmbeddingWorker trata — pump_events deve publicá-los e reconhecê-los sem erro (ack, sem
+    efeito), nunca travar o loop de fundo por causa de um evento que ninguém consome ainda."""
+    client, ctx = client_ctx
+    r = await client.post(
+        "/collection/items",
+        json={"cigar_id": "cigar:cohiba-robustos", "quantity": 1},
+        headers=_AUTH,
+    )
+    assert r.status_code == 200
+    await pump_events(ctx)  # não deve levantar exceção

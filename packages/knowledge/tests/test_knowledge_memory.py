@@ -130,3 +130,13 @@ async def test_oltp_tastings_flow() -> None:
     only = await oltp.list_tastings("u1", cigar_id="cigar:cohiba-robustos")
     assert [t.id for t in only] == ["t1"]
     assert only[0].flavors == ["Amadeirado", "Café"]
+
+
+async def test_oltp_idempotency_keys() -> None:
+    oltp = InMemoryOltp()
+    assert await oltp.idempotency_seen("key-1") is False
+    await oltp.idempotency_mark("key-1")
+    assert await oltp.idempotency_seen("key-1") is True
+    # marcar de novo não é erro (idempotente)
+    await oltp.idempotency_mark("key-1")
+    assert await oltp.idempotency_seen("key-2") is False

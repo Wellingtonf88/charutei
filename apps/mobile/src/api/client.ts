@@ -1,9 +1,9 @@
 // Cliente do BFF do CHARUTEI. O app é só cliente — a inteligência vive no backend (cascata
 // cost-aware). Funções puras (token injetado); os hooks React Query em ./hooks os consomem.
-import Constants from "expo-constants";
-
-const BASE_URL: string =
-  (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ?? "http://localhost:8000";
+//
+// URL por ambiente via `EXPO_PUBLIC_API_BASE_URL` (inlined no bundle pelo Expo, ver .env.example)
+// — nunca hardcoded no código-fonte (era um IP de LAN fixo em app.json, débito da Fase 1).
+const BASE_URL: string = process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 export type BandCandidate = { cigar_id: string; label: string | null; score: number };
 
