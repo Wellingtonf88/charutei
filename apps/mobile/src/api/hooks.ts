@@ -12,6 +12,7 @@ import {
   Collection,
   getCatalog,
   getCollection,
+  getProfile,
   getTastings,
   recognizeBand,
   RecognitionResult,
@@ -25,6 +26,16 @@ export function useCollection() {
   return useQuery({
     queryKey: ["collection"],
     queryFn: () => getCollection(token),
+  });
+}
+
+// Passaporte de experiências (Km de Fumaça) — calculado no backend (Fase 3 do upgrade), não
+// mais localmente: consistente entre dispositivos, não manipulável pelo cliente.
+export function useProfile() {
+  const token = useToken();
+  return useQuery({
+    queryKey: ["profile"],
+    queryFn: () => getProfile(token),
   });
 }
 
@@ -55,6 +66,7 @@ export function useAddToCollection() {
     mutationFn: (cigarId) => addToCollection(token, cigarId, `add-${cigarId}-${Date.now()}`),
     onSuccess: (col, cigarId) => {
       qc.setQueryData(["collection"], col);
+      void qc.invalidateQueries({ queryKey: ["profile"] }); // humidor_size mudou
       void scheduleRestReminder(cigarId); // aging vem do servidor; só agendamos o lembrete
     },
   });
@@ -75,23 +87,14 @@ export function useTastings(cigarId: string) {
   });
 }
 
-// Todas as degustações do usuário (perfil de paladar / gamificação — F3).
-export function useAllTastings() {
-  const token = useToken();
-  return useQuery({
-    queryKey: ["tastings", "all"],
-    queryFn: () => getTastings(token),
-  });
-}
-
 export function useAddTasting() {
   const token = useToken();
   const qc = useQueryClient();
   return useMutation<TastingNote, Error, TastingInput>({
     mutationFn: (input) => addTasting(token, input),
     onSuccess: () => {
-      // invalida por-charuto e "all" (perfil) de uma vez
       void qc.invalidateQueries({ queryKey: ["tastings"] });
+      void qc.invalidateQueries({ queryKey: ["profile"] }); // scores/badges/streak mudaram
     },
   });
 }

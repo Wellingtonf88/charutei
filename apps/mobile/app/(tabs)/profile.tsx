@@ -1,33 +1,20 @@
-// Perfil — paladar derivado das degustações, nível, conquistas (badges), streak e compartilhar.
+// Perfil — passaporte de experiências (Km de Fumaça). Scores/status/badges vêm do backend
+// (Fase 3 do upgrade: calculados no servidor, consistentes entre dispositivos, não
+// manipuláveis pelo cliente) via GET /profile.
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { Share, View } from "react-native";
 
-import { CatalogEntry, CollectionItem, TastingNote } from "../../src/api/client";
-import { useAllTastings, useCatalog, useCollection } from "../../src/api/hooks";
+import { ProfileBadge } from "../../src/api/client";
+import { useProfile } from "../../src/api/hooks";
 import { useAuth } from "../../src/auth/context";
-import {
-  Badge,
-  computeBadges,
-  computeLevel,
-  computePalate,
-  computeStreak,
-  shareSummary,
-} from "../../src/features/insights";
+import { shareSummary } from "../../src/features/insights";
 import { colors, radius, space } from "../../src/theme";
 import { Button, Card, Chip, Screen, Stars, Text } from "../../src/ui";
 
 export default function Profile() {
   const { signOut } = useAuth();
-  const tastings: TastingNote[] = useAllTastings().data ?? [];
-  const items: CollectionItem[] = useCollection().data?.items ?? [];
-  const catalog: CatalogEntry[] = useCatalog().data ?? [];
-
-  const palate = computePalate(tastings, items, catalog);
-  const level = computeLevel(palate);
-  const streak = computeStreak(tastings);
-  const badges = computeBadges(palate, streak);
-  const progress = level.next ? Math.min(1, level.score / level.next) : 1;
+  const profile = useProfile().data;
 
   async function logout() {
     await signOut();
@@ -35,8 +22,23 @@ export default function Profile() {
   }
 
   async function share() {
-    await Share.share({ message: shareSummary(palate, level) });
+    if (profile) await Share.share({ message: shareSummary(profile) });
   }
+
+  if (!profile) {
+    return (
+      <Screen>
+        <Text variant="display" color={colors.gold}>
+          Perfil
+        </Text>
+        <Text variant="body" color={colors.textMuted}>
+          Carregando seu passaporte de experiências…
+        </Text>
+      </Screen>
+    );
+  }
+
+  const { consumer_status: status } = profile;
 
   return (
     <Screen>
@@ -44,35 +46,37 @@ export default function Profile() {
         Perfil
       </Text>
 
-      {/* Nível */}
+      {/* Status */}
       <Card>
         <Text variant="caption" color={colors.textFaint}>
-          NÍVEL
+          STATUS
         </Text>
         <Text variant="title" color={colors.gold}>
-          {level.name}
+          {status.name}
         </Text>
         <View style={{ height: 8, borderRadius: radius.pill, backgroundColor: colors.surfaceAlt }}>
           <View
             style={{
               height: 8,
-              width: `${Math.round(progress * 100)}%`,
+              width: `${Math.round(status.progress * 100)}%`,
               borderRadius: radius.pill,
               backgroundColor: colors.gold,
             }}
           />
         </View>
         <Text variant="caption" color={colors.textMuted}>
-          {level.next ? `${level.score}/${level.next} para o próximo nível` : "nível máximo"}
+          {status.next_threshold
+            ? `${status.combined_score}/${status.next_threshold} para o próximo status`
+            : "status máximo"}
         </Text>
       </Card>
 
       {/* Estatísticas */}
       <View style={{ flexDirection: "row", gap: space.md }}>
-        <Stat value={palate.humidorSize} label="humidor" />
-        <Stat value={palate.distinctCountries} label="países" />
-        <Stat value={palate.totalTastings} label="degustações" />
-        <Stat value={streak} label="dias seguidos" />
+        <Stat value={profile.humidor_size} label="humidor" />
+        <Stat value={profile.distinct_countries} label="países" />
+        <Stat value={profile.total_tastings} label="degustações" />
+        <Stat value={profile.streak_days} label="dias seguidos" />
       </View>
 
       {/* Paladar */}
@@ -80,18 +84,18 @@ export default function Profile() {
         <Text variant="caption" color={colors.textFaint}>
           SEU PALADAR
         </Text>
-        {palate.totalTastings > 0 ? (
+        {profile.total_tastings > 0 ? (
           <>
             <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
-              <Stars value={Math.round(palate.avgRating)} size={18} />
+              <Stars value={Math.round(profile.avg_rating)} size={18} />
               <Text variant="caption" color={colors.textMuted}>
-                média {palate.avgRating.toFixed(1)}
+                média {profile.avg_rating.toFixed(1)}
               </Text>
             </View>
-            {palate.topFlavors.length > 0 && (
+            {profile.top_flavors.length > 0 && (
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
-                {palate.topFlavors.map((f) => (
-                  <Chip key={f.key} label={`${f.key} · ${f.count}`} tone="gold" />
+                {profile.top_flavors.map((f) => (
+                  <Chip key={f} label={f} tone="gold" />
                 ))}
               </View>
             )}
@@ -109,7 +113,7 @@ export default function Profile() {
           CONQUISTAS
         </Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.md }}>
-          {badges.map((b) => (
+          {profile.badges.map((b) => (
             <BadgeView key={b.id} badge={b} />
           ))}
         </View>
@@ -134,7 +138,7 @@ function Stat({ value, label }: { value: number; label: string }) {
   );
 }
 
-function BadgeView({ badge }: { badge: Badge }) {
+function BadgeView({ badge }: { badge: ProfileBadge }) {
   const tint = badge.earned ? colors.gold : colors.textFaint;
   return (
     <View style={{ width: 96, alignItems: "center", gap: space.xs, opacity: badge.earned ? 1 : 0.5 }}>

@@ -62,6 +62,36 @@ export type AskResult = {
   needs_human: boolean;
 };
 
+// Passaporte de experiências (Km de Fumaça, F upgrade-3). REPUTATION_SCORE/INFLUENCE_SCORE não
+// existem ainda no backend — dependem de sinal social que só chega na Fase 7 (Community).
+export type ConsumerStatus = {
+  name: string;
+  index: number;
+  next_threshold: number | null;
+  progress: number; // 0..1
+  combined_score: number;
+};
+export type ProfileBadge = {
+  id: string;
+  label: string;
+  icon: string;
+  earned: boolean;
+  hint: string;
+};
+export type Profile = {
+  total_tastings: number;
+  humidor_size: number; // soma de todas as collections do usuário
+  avg_rating: number;
+  top_flavors: string[];
+  distinct_flavors: number;
+  distinct_countries: number;
+  streak_days: number;
+  experience_score: number;
+  knowledge_score: number;
+  consumer_status: ConsumerStatus;
+  badges: ProfileBadge[];
+};
+
 function headers(token: string, extra?: Record<string, string>): Record<string, string> {
   return { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(extra ?? {}) };
 }
@@ -103,6 +133,10 @@ export async function addToCollection(
 
 export async function getCollection(token: string): Promise<Collection> {
   return json<Collection>(await fetch(`${BASE_URL}/collection`, { headers: headers(token) }), "humidor");
+}
+
+export async function getProfile(token: string): Promise<Profile> {
+  return json<Profile>(await fetch(`${BASE_URL}/profile`, { headers: headers(token) }), "perfil");
 }
 
 export async function getCatalog(token: string): Promise<CatalogEntry[]> {

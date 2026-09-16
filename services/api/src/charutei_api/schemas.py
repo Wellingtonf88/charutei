@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from charutei_scoring import Badge, ConsumerStatus
 from pydantic import BaseModel, Field
 
 
@@ -50,3 +51,21 @@ class CatalogEntry(BaseModel):
     brand: str | None = None
     country: str | None = None
     pairings: list[str] = Field(default_factory=list)
+
+
+class ProfileOut(BaseModel):
+    """Passaporte de experiências (Fase 3 do upgrade — Km de Fumaça). REPUTATION_SCORE e
+    INFLUENCE_SCORE não aparecem aqui: dependem de sinal social que só existe a partir da Fase 7
+    (Community) — sem dado real, não expomos um "0" enganoso."""
+
+    total_tastings: int
+    humidor_size: int  # soma de items em TODAS as collections do usuário (não só o humidor padrão)
+    avg_rating: float
+    top_flavors: list[str] = Field(default_factory=list)
+    distinct_flavors: int
+    distinct_countries: int
+    streak_days: int
+    experience_score: int
+    knowledge_score: int
+    consumer_status: ConsumerStatus
+    badges: list[Badge]

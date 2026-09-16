@@ -27,8 +27,51 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
 | Upgrade-P0 | Auditoria (Consumer Intelligence Platform) — 3 docs pré-código | ✅ |
 | Upgrade-P1 | Foundations — idempotência durável + config mobile por env | ✅ (parcial) |
 | Upgrade-P2 | Experience Engine — multi-collection + eventos de experiência | ✅ |
+| Upgrade-P3 | Consumer Identity — Km de Fumaça (scoring server-side) | ✅ |
 
 ---
+
+## Upgrade Fase 3 — Consumer Identity / Km de Fumaça (✅)
+**Contexto:** terceira fase do upgrade. Gamificação (F3 mobile) era 100% client-side — débito
+registrado no audit §11.2 ("sem consistência cross-device, sem defesa contra manipulação"). O
+prompt mestre também é explícito: *"quantidade bruta de registros não deve automaticamente
+significar maior autoridade"* — a fórmula antiga do mobile (`humidorSize + tastings*2`) era
+exatamente isso. Planejada em modo de planejamento e aprovada antes de codar.
+
+**Entregue:**
+- **`packages/scoring`** (novo pacote, puro, sem I/O/LLM): `compute_experience_score` (soma
+  atividade + bônus de diversidade — países/marcas distintos — + bônus de recorrência/streak, não
+  só quantidade), `compute_knowledge_score` (prioriza nota escrita de verdade, não só estrelas),
+  `compute_consumer_status` (tier a partir da SOMA dos dois scores — por isso atividade pura não
+  basta para subir de status), `compute_streak`, `compute_badges` (os mesmos 6 do mobile, agora
+  server-side).
+- **`GET /profile`**: agrega `tasting_notes` + `collections` (Fase 2 — soma itens de **todas** as
+  collections do usuário, não só o humidor padrão) + lookups no KG (país/marca por charuto) e
+  chama as funções puras acima.
+- **Mobile**: `profile.tsx` troca o cálculo local por `useProfile()`; `insights.ts` perde
+  `computePalate/computeLevel/computeStreak/computeBadges` (código morto após a troca — deletado,
+  não deprecado), mantém só `shareSummary` reformatado para o novo shape de dado.
+
+**Decisão de escopo (registrada em `DATA_MODEL.md`):** `REPUTATION_SCORE`/`INFLUENCE_SCORE`
+(pedidos no prompt mestre) ficaram de fora — dependem de sinal social (follow/like/aceitação de
+recomendação) que só existe a partir da Fase 7 (Community); `GET /profile` não expõe esses campos
+como `0`, que seria enganoso. Também não materializei `user_scores`+job (calculado sob demanda por
+ora — barato na escala atual, mesma disciplina do índice HNSW adiado na Fase 1).
+
+**Testes/evals:** ruff ✓ · format ✓ · mypy ✓ (mesmos 2 erros pré-existentes intocados) ·
+**pytest 136 passed, 9 skipped** contra Postgres real (era 125 passed/8 skipped ao fim da Fase 2) ·
+7 evals PASS · mobile `tsc --noEmit` e `expo config` limpos.
+
+**Validação real (Postgres vivo, OrbStack):** smoke HTTP — usuário cria uma 2ª collection, adiciona
+itens em ambas (Cuba + República Dominicana), registra uma degustação com nota escrita; `GET
+/profile` retornou `humidor_size=2` (soma das 2 collections), `distinct_countries=2`,
+`experience_score=15`, `knowledge_score=7`, status "Aficionado" (combined=22, entre os thresholds
+15 e 40) — **os números batem exatamente com a fórmula calculada à mão**, confirmando a integração
+ponta a ponta (não só a lógica isolada dos testes unitários).
+
+**Fora de escopo (registrado, não feito):** redesenho visual da tela de perfil para tom
+"passaporte de experiências" (trabalho de design, não de dados — o JSX desta fase só trocou a
+fonte do dado, manteve a mesma estrutura visual).
 
 ## Upgrade Fase 2 — Experience Engine (✅)
 **Contexto:** segunda fase do upgrade (`docs/IMPLEMENTATION_ROADMAP.md`). Planejada em modo de

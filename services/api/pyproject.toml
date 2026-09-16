@@ -15,6 +15,7 @@ dependencies = [
     "charutei-cigar-intelligence",
     "charutei-events",
     "charutei-embedding-worker",
+    "charutei-scoring",
 ]
 
 [project.optional-dependencies]
@@ -36,3 +37,4 @@ charutei-assistant = { workspace = true }
 charutei-cigar-intelligence = { workspace = true }
 charutei-events = { workspace = true }
 charutei-embedding-worker = { workspace = true }
+charutei-scoring = { workspace = true }

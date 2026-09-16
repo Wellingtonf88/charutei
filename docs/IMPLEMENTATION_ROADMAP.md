@@ -43,11 +43,25 @@ Pré-requisito de tudo que segue, sem valor de produto visível isoladamente:
 - Validado: pytest (125 passed contra Postgres real, era 118 ao fim da Fase 1) · 7 evals PASS ·
   smoke HTTP ao vivo confirmando isolamento entre usuários (bob → 404 na collection da alice).
 
-## PHASE 3 — Consumer Identity (Km de Fumaça / Passaporte)
-`packages/scoring` (determinístico, configurável, sem LLM) + tabela `user_scores` + job batch.
-Move gamificação do client (`insights.ts`) para o backend — client passa a ler `GET /profile/score`
-em vez de calcular localmente. Reformular apresentação de badges/nível para tom "passaporte de
-experiências" (menos barra de XP, mais dossiê) — trabalho de design, não de dados.
+## PHASE 3 — Consumer Identity (Km de Fumaça / Passaporte) (✅ concluída nesta sessão)
+- ✅ `packages/scoring` (puro, sem I/O, sem LLM): `compute_experience_score`,
+  `compute_knowledge_score`, `compute_consumer_status`, `compute_streak`, `compute_badges` —
+  fórmula considera diversidade (países/marcas) e documentação real (nota escrita), não só
+  quantidade bruta ("requisito explícito do prompt mestre").
+- ✅ `GET /profile`: substitui o cálculo 100% client-side por agregação server-side sobre
+  `tasting_notes` + `collections` (todas, Fase 2) + KG — fecha o débito do audit §11.2
+  ("gamificação sem backend, sem consistência cross-device, sem defesa contra manipulação").
+- ✅ Mobile: `profile.tsx` troca `insights.ts` local por `useProfile()`; `insights.ts` perde as
+  funções agora redundantes, mantém só `shareSummary`.
+- **Adiado, com motivo em `docs/DATA_MODEL.md`**: `REPUTATION_SCORE`/`INFLUENCE_SCORE` (sem dado
+  social — Fase 7) e tabela `user_scores`+job (calculado sob demanda por ora, barato na escala
+  atual).
+- Validado: pytest (136 passed contra Postgres real, era 125 ao fim da Fase 2) · 7 evals PASS ·
+  `tsc --noEmit`/`expo config` limpos · smoke HTTP ao vivo confirmando a fórmula exata (score,
+  status e progresso calculados à mão bateram com a resposta da API) e isolamento entre usuários.
+- **Fora de escopo (registrado, não feito)**: redesenho visual da tela de perfil para tom
+  "passaporte" (menos barra de progresso, mais dossiê) — trabalho de design, não de dados; o JSX
+  desta fase só trocou a fonte do dado.
 
 ## PHASE 4 — Location Intelligence
 `LocationRepo` + `GeocodingProvider`/`MapsProvider`/`PlacesProvider` (Protocol + Fake, sem vendor

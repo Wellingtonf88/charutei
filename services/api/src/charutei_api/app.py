@@ -14,6 +14,7 @@ import asyncio
 import contextlib
 import os
 import uuid
+from collections import Counter
 from contextlib import asynccontextmanager
 
 from charutei_contracts import BandImage, BandRecognitionResult, CascadeResult
@@ -21,6 +22,13 @@ from charutei_events import EventType
 from charutei_events.models import Event
 from charutei_knowledge import Band, Collection, CollectionItem, NodeType, TastingNote, User
 from charutei_orchestrator import RequestKind
+from charutei_scoring import (
+    compute_badges,
+    compute_consumer_status,
+    compute_experience_score,
+    compute_knowledge_score,
+    compute_streak,
+)
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -33,6 +41,7 @@ from charutei_api.schemas import (
     AskRequest,
     CatalogEntry,
     CreateCollectionRequest,
+    ProfileOut,
     RecognizeRequest,
     TastingRequest,
 )
@@ -214,6 +223,68 @@ def create_app(ctx: AppContext | None = None) -> FastAPI:
         cigar_id: str | None = None,
     ) -> list[TastingNote]:
         return await ctx.oltp.list_tastings(user.id, cigar_id)
+
+    @app.get("/profile")
+    async def profile(
+        user: AuthUser = Depends(current_user), ctx: AppContext = Depends(get_ctx)
+    ) -> ProfileOut:
+        tastings = await ctx.oltp.list_tastings(user.id)
+        collections = await ctx.oltp.list_collections(user.id)
+        # "km de fumaça" é a bagagem total do usuário — soma itens de TODAS as collections dele
+        # (Fase 2), não só o humidor padrão.
+        items = [item for col in collections for item in col.items]
+
+        total_tastings = len(tastings)
+        tastings_with_notes = sum(1 for t in tastings if t.note.strip())
+        avg_rating = sum(t.rating for t in tastings) / total_tastings if total_tastings else 0.0
+        flavor_counts = Counter(f for t in tastings for f in t.flavors)
+        top_flavors = [f for f, _ in flavor_counts.most_common(6)]
+        streak_days = compute_streak([t.created_at.date() for t in tastings if t.created_at])
+
+        distinct_cigar_ids = {item.cigar_id for item in items}
+        countries: set[str] = set()
+        brands: set[str] = set()
+        for cigar_id in distinct_cigar_ids:
+            country_nodes = await ctx.kg.neighbors(cigar_id, rel="from_country")
+            brand_nodes = await ctx.kg.neighbors(cigar_id, rel="made_by")
+            countries.update(n.label for n in country_nodes)
+            brands.update(n.label for n in brand_nodes)
+
+        experience_score = compute_experience_score(
+            humidor_size=len(items),
+            total_tastings=total_tastings,
+            distinct_countries=len(countries),
+            distinct_brands=len(brands),
+            streak_days=streak_days,
+        )
+        knowledge_score = compute_knowledge_score(
+            tastings_with_notes=tastings_with_notes,
+            distinct_flavors=len(flavor_counts),
+        )
+        consumer_status = compute_consumer_status(
+            experience_score=experience_score, knowledge_score=knowledge_score
+        )
+        badges = compute_badges(
+            total_tastings=total_tastings,
+            humidor_size=len(items),
+            distinct_countries=len(countries),
+            distinct_flavors=len(flavor_counts),
+            streak_days=streak_days,
+        )
+
+        return ProfileOut(
+            total_tastings=total_tastings,
+            humidor_size=len(items),
+            avg_rating=avg_rating,
+            top_flavors=top_flavors,
+            distinct_flavors=len(flavor_counts),
+            distinct_countries=len(countries),
+            streak_days=streak_days,
+            experience_score=experience_score,
+            knowledge_score=knowledge_score,
+            consumer_status=consumer_status,
+            badges=badges,
+        )
 
     @app.post("/collections")
     async def create_collection(
