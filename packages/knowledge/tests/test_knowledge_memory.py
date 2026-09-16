@@ -132,6 +132,20 @@ async def test_oltp_tastings_flow() -> None:
     assert only[0].flavors == ["Amadeirado", "Café"]
 
 
+async def test_oltp_list_collections() -> None:
+    oltp = InMemoryOltp()
+    await oltp.create_user(User(id="u1", email="a@b.com"))
+    await oltp.create_user(User(id="u2", email="c@d.com"))
+    await oltp.create_collection(Collection(id="col:u1", user_id="u1"))  # humidor padrão
+    await oltp.create_collection(Collection(id="col-extra", user_id="u1", name="Viagem"))
+    await oltp.create_collection(Collection(id="col:u2", user_id="u2"))
+
+    u1_collections = await oltp.list_collections("u1")
+    assert {c.id for c in u1_collections} == {"col:u1", "col-extra"}
+    assert {c.id for c in await oltp.list_collections("u2")} == {"col:u2"}
+    assert await oltp.list_collections("u3") == []
+
+
 async def test_oltp_idempotency_keys() -> None:
     oltp = InMemoryOltp()
     assert await oltp.idempotency_seen("key-1") is False

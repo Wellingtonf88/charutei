@@ -86,6 +86,10 @@ class OltpRepository(Protocol):
 
     async def get_collection(self, collection_id: str) -> Collection | None: ...
 
+    async def list_collections(self, user_id: str) -> list[Collection]:
+        """Todas as collections do usuário (o humidor padrão + quaisquer outras nomeadas)."""
+        ...
+
     async def add_tasting(self, note: TastingNote) -> TastingNote:
         """Registra uma degustação (rating/sabores/nota) — F2.5."""
         ...

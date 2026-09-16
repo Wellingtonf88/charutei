@@ -28,11 +28,20 @@ Pré-requisito de tudo que segue, sem valor de produto visível isoladamente:
   manualmente). Adiado nesta sessão — é uma feature de UI nova (fluxo de login) que não pode ser
   validada sem simulador/device, ao contrário dos itens acima que foram todos verificados.
 
-## PHASE 2 — Experience Engine
-Generalizar `tasting_notes` → `EXPERIENCE` sem quebrar dados existentes: colunas opcionais
-(`structured_attrs`, `ai_confidence`, `ai_source`), suporte a múltiplas collections (não só "humidor"
-único), `EventType`s novos (`experience_created/updated`). Escreve `docs/DATA_MODEL.md` com o schema
-exato desta fase (não antecipado no TARGET_ARCHITECTURE).
+## PHASE 2 — Experience Engine (✅ concluída nesta sessão)
+- ✅ Multi-collection: `OltpRepository.list_collections`, `POST/GET /collections`,
+  `POST /collection/items` aceita `collection_id` opcional (valida propriedade, 404 se não é do
+  usuário). Zero migration — `collections` já suportava N por usuário desde a Fase 1 (S1); a
+  limitação era só na API. 100% retrocompatível (mobile não muda).
+- ✅ `EventType`s novos: `colecao.criada`, `degustacao.registrada` (`POST /tasting` não emitia
+  nenhum evento antes desta fase).
+- ✅ `docs/DATA_MODEL.md` com o schema exato e a decisão de escopo.
+- **Adiado, com motivo registrado em `docs/DATA_MODEL.md`**: colunas `structured_attrs`/
+  `ai_confidence`/`ai_source` em `tasting_notes` (schema sem leitor/escritor — não existe agente de
+  extração ainda; entra junto com ele na Fase 5) e renomear `tasting_notes`→`EXPERIENCE` (extensão,
+  não reescrita).
+- Validado: pytest (125 passed contra Postgres real, era 118 ao fim da Fase 1) · 7 evals PASS ·
+  smoke HTTP ao vivo confirmando isolamento entre usuários (bob → 404 na collection da alice).
 
 ## PHASE 3 — Consumer Identity (Km de Fumaça / Passaporte)
 `packages/scoring` (determinístico, configurável, sem LLM) + tabela `user_scores` + job batch.

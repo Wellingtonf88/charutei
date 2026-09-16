@@ -32,6 +32,7 @@ from charutei_api.schemas import (
     AddItemRequest,
     AskRequest,
     CatalogEntry,
+    CreateCollectionRequest,
     RecognizeRequest,
     TastingRequest,
 )
@@ -187,7 +188,7 @@ def create_app(ctx: AppContext | None = None) -> FastAPI:
         user: AuthUser = Depends(current_user),
         ctx: AppContext = Depends(get_ctx),
     ) -> TastingNote:
-        return await ctx.oltp.add_tasting(
+        saved = await ctx.oltp.add_tasting(
             TastingNote(
                 id=uuid.uuid4().hex,
                 user_id=user.id,
@@ -198,6 +199,13 @@ def create_app(ctx: AppContext | None = None) -> FastAPI:
                 note=req.note,
             )
         )
+        await ctx.outbox.add(
+            Event(
+                type=EventType.DEGUSTACAO_REGISTRADA,
+                payload={"user_id": user.id, "cigar_id": req.cigar_id, "tasting_id": saved.id},
+            )
+        )
+        return saved
 
     @app.get("/tasting")
     async def list_tastings(
@@ -207,6 +215,29 @@ def create_app(ctx: AppContext | None = None) -> FastAPI:
     ) -> list[TastingNote]:
         return await ctx.oltp.list_tastings(user.id, cigar_id)
 
+    @app.post("/collections")
+    async def create_collection(
+        req: CreateCollectionRequest,
+        user: AuthUser = Depends(current_user),
+        ctx: AppContext = Depends(get_ctx),
+    ) -> Collection:
+        collection = await ctx.oltp.create_collection(
+            Collection(id=uuid.uuid4().hex, user_id=user.id, name=req.name)
+        )
+        await ctx.outbox.add(
+            Event(
+                type=EventType.COLECAO_CRIADA,
+                payload={"user_id": user.id, "collection_id": collection.id, "name": req.name},
+            )
+        )
+        return collection
+
+    @app.get("/collections")
+    async def list_collections(
+        user: AuthUser = Depends(current_user), ctx: AppContext = Depends(get_ctx)
+    ) -> list[Collection]:
+        return await ctx.oltp.list_collections(user.id)
+
     @app.post("/collection/items")
     async def add_item(
         req: AddItemRequest,
@@ -214,9 +245,18 @@ def create_app(ctx: AppContext | None = None) -> FastAPI:
         ctx: AppContext = Depends(get_ctx),
         idempotency_key: str | None = Header(default=None),
     ) -> Collection:
-        col_id = f"col:{user.id}"
-        if await ctx.oltp.get_collection(col_id) is None:
-            await ctx.oltp.create_collection(Collection(id=col_id, user_id=user.id))
+        if req.collection_id is not None:
+            # Escrita numa collection específica: precisa existir e pertencer ao usuário
+            # autenticado. 404 tanto se não existe quanto se é de outro usuário — não confirma
+            # a existência de dados alheios para quem não é dono.
+            target = await ctx.oltp.get_collection(req.collection_id)
+            if target is None or target.user_id != user.id:
+                raise HTTPException(status_code=404, detail="coleção não encontrada")
+            col_id = req.collection_id
+        else:
+            col_id = f"col:{user.id}"
+            if await ctx.oltp.get_collection(col_id) is None:
+                await ctx.oltp.create_collection(Collection(id=col_id, user_id=user.id))
 
         # Idempotência: a mesma Idempotency-Key não adiciona o item duas vezes. Durável
         # (Postgres) e multi-réplica — não usa mais um `set` em memória do processo.

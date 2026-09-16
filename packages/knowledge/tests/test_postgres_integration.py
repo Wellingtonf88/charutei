@@ -51,7 +51,7 @@ async def oltp_conn():  # type: ignore[no-untyped-def]
 
     conn = await psycopg.AsyncConnection.connect(DB_URL)
     await apply_schema(conn)
-    await conn.execute("TRUNCATE idempotency_keys")
+    await conn.execute("TRUNCATE idempotency_keys, collection_items, collections, users CASCADE")
     await conn.commit()
     yield PostgresOltp(conn)
     await conn.close()
@@ -63,3 +63,17 @@ async def test_postgres_idempotency_keys_durable(oltp_conn) -> None:  # type: ig
     assert await oltp_conn.idempotency_seen("key-durable-1") is True
     # marcar de novo não é erro (ON CONFLICT DO NOTHING)
     await oltp_conn.idempotency_mark("key-durable-1")
+
+
+async def test_postgres_list_collections(oltp_conn) -> None:  # type: ignore[no-untyped-def]
+    from charutei_knowledge import Collection, User
+
+    await oltp_conn.create_user(User(id="u1", email="u1@example.com"))
+    await oltp_conn.create_user(User(id="u2", email="u2@example.com"))
+    await oltp_conn.create_collection(Collection(id="col:u1", user_id="u1"))
+    await oltp_conn.create_collection(Collection(id="col-extra", user_id="u1", name="Viagem"))
+    await oltp_conn.create_collection(Collection(id="col:u2", user_id="u2"))
+
+    u1_collections = await oltp_conn.list_collections("u1")
+    assert {c.id for c in u1_collections} == {"col:u1", "col-extra"}
+    assert {c.id for c in await oltp_conn.list_collections("u2")} == {"col:u2"}

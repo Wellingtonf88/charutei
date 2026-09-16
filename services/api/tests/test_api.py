@@ -117,6 +117,71 @@ async def test_collection_idempotency(client_ctx) -> None:  # type: ignore[no-un
     assert len(second.json()["items"]) == 1  # não duplicou
 
 
+async def test_create_named_collection_and_list(client_ctx) -> None:  # type: ignore[no-untyped-def]
+    client, _ = client_ctx
+    r = await client.post("/collections", json={"name": "Viagem SP"}, headers=_AUTH)
+    assert r.status_code == 200
+    created = r.json()
+    assert created["name"] == "Viagem SP"
+
+    r = await client.get("/collections", headers=_AUTH)
+    ids = {c["id"] for c in r.json()}
+    assert created["id"] in ids
+
+    # o humidor padrão (/collection, singular) continua isolado da nova collection nomeada
+    r = await client.get("/collection", headers=_AUTH)
+    assert r.json()["id"] != created["id"]
+    assert len(r.json()["items"]) == 0
+
+
+async def test_add_item_to_specific_collection(client_ctx) -> None:  # type: ignore[no-untyped-def]
+    client, _ = client_ctx
+    created = (await client.post("/collections", json={"name": "Viagem SP"}, headers=_AUTH)).json()
+
+    r = await client.post(
+        "/collection/items",
+        json={"cigar_id": "cigar:cohiba-robustos", "collection_id": created["id"]},
+        headers=_AUTH,
+    )
+    assert r.status_code == 200
+    assert r.json()["id"] == created["id"]
+    assert len(r.json()["items"]) == 1
+
+    # o humidor padrão não foi afetado
+    default = await client.get("/collection", headers=_AUTH)
+    assert len(default.json()["items"]) == 0
+
+
+async def test_add_item_rejects_foreign_collection_id(client_ctx) -> None:  # type: ignore[no-untyped-def]
+    client, _ = client_ctx
+    other_user_collection = (
+        await client.post(
+            "/collections", json={"name": "Bob"}, headers={"Authorization": "Bearer bob"}
+        )
+    ).json()
+
+    r = await client.post(
+        "/collection/items",
+        json={"cigar_id": "cigar:cohiba-robustos", "collection_id": other_user_collection["id"]},
+        headers=_AUTH,  # alice tentando escrever na collection do bob
+    )
+    assert r.status_code == 404
+
+
+async def test_tasting_emits_experience_event(client_ctx) -> None:  # type: ignore[no-untyped-def]
+    """POST /tasting não emitia nenhum evento antes da Fase 2 — sem sinal de "experiência
+    registrada" para a Fase 6 (Recommendation Engine) consumir depois."""
+    client, ctx = client_ctx
+    r = await client.post(
+        "/tasting",
+        json={"cigar_id": "cigar:cohiba-robustos", "rating": 5},
+        headers=_AUTH,
+    )
+    assert r.status_code == 200
+    await pump_events(ctx)  # publica + processa (sem handler dedicado ainda) sem erro
+    assert ctx.bus.pending() == 0
+
+
 async def test_pump_events_materializes_catalog_embeddings(client_ctx) -> None:  # type: ignore[no-untyped-def]
     """Fase 1: o pipeline outbox→bus→worker estava desconectado (achado do audit) — a ingestão
     do catálogo no boot já enfileira `sku.detectado`; pump_events publica e materializa os

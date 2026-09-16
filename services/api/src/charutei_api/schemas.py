@@ -18,6 +18,13 @@ class RecognizeRequest(BaseModel):
 class AddItemRequest(BaseModel):
     cigar_id: str
     quantity: int = Field(default=1, gt=0)
+    # None preserva o comportamento atual (escreve no humidor padrão do usuário). Preenchido,
+    # escreve numa collection específica — validada como do próprio usuário no handler.
+    collection_id: str | None = None
+
+
+class CreateCollectionRequest(BaseModel):
+    name: str
 
 
 class AskRequest(BaseModel):

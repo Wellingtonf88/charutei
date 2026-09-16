@@ -150,6 +150,9 @@ class InMemoryOltp:
     async def get_collection(self, collection_id: str) -> Collection | None:
         return self._collections.get(collection_id)
 
+    async def list_collections(self, user_id: str) -> list[Collection]:
+        return [c for c in self._collections.values() if c.user_id == user_id]
+
     async def add_tasting(self, note: TastingNote) -> TastingNote:
         if note.created_at is None:
             note = note.model_copy(update={"created_at": datetime.now(UTC)})

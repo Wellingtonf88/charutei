@@ -26,8 +26,47 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
 | S11 | Auth real — SupabaseAuthProvider (JWT HS256) | ✅ |
 | Upgrade-P0 | Auditoria (Consumer Intelligence Platform) — 3 docs pré-código | ✅ |
 | Upgrade-P1 | Foundations — idempotência durável + config mobile por env | ✅ (parcial) |
+| Upgrade-P2 | Experience Engine — multi-collection + eventos de experiência | ✅ |
 
 ---
+
+## Upgrade Fase 2 — Experience Engine (✅)
+**Contexto:** segunda fase do upgrade (`docs/IMPLEMENTATION_ROADMAP.md`). Planejada em modo de
+planejamento (CLAUDE.md exige plano antes de editar `packages/knowledge/`) e aprovada antes de codar.
+
+**Entregue:**
+- **Multi-collection**: `OltpRepository.list_collections(user_id)` (Protocol + in-memory +
+  Postgres, com helper `_load_items` extraído para evitar duplicar o SQL de join). `POST /collections`
+  (cria, `id=uuid4().hex`, emite `colecao.criada`), `GET /collections` (lista todas do usuário).
+  `POST /collection/items` ganha `collection_id: str | None` opcional — `None` preserva o
+  comportamento atual (humidor padrão `col:{user_id}`); preenchido, valida que a collection é do
+  usuário autenticado (404 senão — não distingue "não existe" de "não é sua"). **Zero migration**:
+  `collections.user_id` nunca teve `UNIQUE`, o schema já suportava N por usuário desde a S1 — a
+  limitação era só na API.
+- **Eventos de experiência**: `colecao.criada` e `degustacao.registrada` (`EventType` novo em
+  `packages/events`). `POST /tasting` não emitia nenhum evento antes desta fase — era o único
+  write-path de domínio sem rastro, deixando a futura Fase 6 (Recommendation Engine) sem sinal de
+  "experiência registrada".
+- **`docs/DATA_MODEL.md`** (novo): schema exato pós-Fase-2, com a decisão de escopo documentada.
+
+**Decisão de escopo (registrada no plano e em `DATA_MODEL.md`):** colunas `structured_attrs`/
+`ai_confidence`/`ai_source` em `tasting_notes` (previstas no `TARGET_ARCHITECTURE.md` para atributos
+inferidos por IA a partir do texto livre) ficaram **fora** desta fase — não existe hoje nenhum
+agente que faça essa extração, então seriam schema sem leitor/escritor. Entram junto com o agente
+que as popula, na Fase 5 (AI/RAG). `tasting_notes` também não foi renomeada para "Experience":
+extensão do que já existe, não reescrita.
+
+**Testes/evals:** ruff ✓ · format ✓ · mypy ✓ (mesmos 2 erros pré-existentes intocados) ·
+**pytest 125 passed, 8 skipped** contra Postgres real (era 118 passed/9 skipped ao fim da Fase 1) ·
+7 evals PASS.
+
+**Validação real (Postgres vivo, OrbStack):** smoke HTTP num servidor real — alice cria uma
+collection nomeada; bob tenta adicionar item nela → `404`; alice adiciona no próprio item →
+`200`, aparece só na collection nomeada, humidor padrão dela continua vazio. Confirma isolamento
+entre usuários de ponta a ponta, não só via teste automatizado.
+
+**Fora de escopo (mobile):** nenhuma tela nova para criar/trocar collections — `GET/POST
+/collection` (singular) continua funcionando sem nenhuma mudança no client.
 
 ## Upgrade Fase 0+1 — Auditoria + débito técnico bloqueante (✅ parcial)
 **Contexto:** início do upgrade arquitetural para "Consumer Intelligence Platform" (Consumer Graph,

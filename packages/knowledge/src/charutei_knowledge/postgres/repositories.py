@@ -216,6 +216,19 @@ class PostgresOltp:
         await self._conn.commit()
         return item.model_copy(update={"created_at": row[0]}) if row else item
 
+    async def _load_items(self, collection_id: str) -> list[CollectionItem]:
+        items_cur = await self._conn.execute(
+            "SELECT id, collection_id, cigar_id, quantity, created_at FROM collection_items "
+            "WHERE collection_id = %s ORDER BY created_at",
+            (collection_id,),
+        )
+        return [
+            CollectionItem(
+                id=r[0], collection_id=r[1], cigar_id=r[2], quantity=r[3], created_at=r[4]
+            )
+            for r in await items_cur.fetchall()
+        ]
+
     async def get_collection(self, collection_id: str) -> Collection | None:
         cur = await self._conn.execute(
             "SELECT id, user_id, name FROM collections WHERE id = %s", (collection_id,)
@@ -223,18 +236,19 @@ class PostgresOltp:
         row = await cur.fetchone()
         if not row:
             return None
-        items_cur = await self._conn.execute(
-            "SELECT id, collection_id, cigar_id, quantity, created_at FROM collection_items "
-            "WHERE collection_id = %s ORDER BY created_at",
-            (collection_id,),
-        )
-        items = [
-            CollectionItem(
-                id=r[0], collection_id=r[1], cigar_id=r[2], quantity=r[3], created_at=r[4]
-            )
-            for r in await items_cur.fetchall()
-        ]
+        items = await self._load_items(collection_id)
         return Collection(id=row[0], user_id=row[1], name=row[2], items=items)
+
+    async def list_collections(self, user_id: str) -> list[Collection]:
+        cur = await self._conn.execute(
+            "SELECT id, user_id, name FROM collections WHERE user_id = %s ORDER BY created_at",
+            (user_id,),
+        )
+        rows = await cur.fetchall()
+        return [
+            Collection(id=r[0], user_id=r[1], name=r[2], items=await self._load_items(r[0]))
+            for r in rows
+        ]
 
     async def add_tasting(self, note: TastingNote) -> TastingNote:
         cur = await self._conn.execute(

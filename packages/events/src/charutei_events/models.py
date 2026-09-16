@@ -20,6 +20,8 @@ class EventType(StrEnum):
     IMAGEM_ENVIADA = "imagem.enviada"
     SKU_DETECTADO = "sku.detectado"
     COLECAO_ALTERADA = "colecao.alterada"
+    COLECAO_CRIADA = "colecao.criada"
+    DEGUSTACAO_REGISTRADA = "degustacao.registrada"
 
 
 def _new_id() -> str:
