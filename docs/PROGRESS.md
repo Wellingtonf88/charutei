@@ -29,8 +29,44 @@ Registro de avanço por slice vertical (S0–S8). Princípio reitor: **"LLM é o
 | Upgrade-P2 | Experience Engine — multi-collection + eventos de experiência | ✅ |
 | Upgrade-P3 | Consumer Identity — Km de Fumaça (scoring server-side) | ✅ |
 | Upgrade-P4 | Location Intelligence — estabelecimentos + "onde encontro perto de mim" | ✅ (1º slice) |
+| Upgrade-P5 | AI/RAG — separação de corpora | ⏸ adiada (sem dado real) |
+| Upgrade-P6 | Recommendation Engine v1 (determinístico) | ✅ |
 
 ---
+
+## Upgrade Fase 6 — Recommendation Engine v1 (✅) — e Fase 5 adiada
+**Contexto:** você pediu para seguir com as próximas fases, deixando geocoding real em backlog.
+A próxima na ordem era a Fase 5 (separar corpora de RAG), mas revisando o que ela pede antes de
+planejar: Knowledge Base já existe e já está isolada, User Data já nunca entra no RAG (invariante
+já respeitada), e Community Knowledge o próprio roadmap já registra como dependente de "volume
+real de experiências" — hoje zero (só dado de teste). Construir isso agora seria RAG sobre dado
+fabricado. Marquei como **adiada** (não pulada silenciosamente) e propus ir direto para a Fase 6,
+que tem sinal real hoje: `tasting_notes` (ratings) e `collections` (Fases 2/3).
+
+**Entregue:**
+- **`packages/recommendation`** (novo pacote, puro, sem I/O/LLM): candidate generation (catálogo
+  menos o que o usuário já tem/avaliou) → pontuação por afinidade (+2 mesma marca, +1 mesmo país,
+  +1 mesma força, de charutos avaliados ≥4★ ou já possuídos) → ranking determinístico com
+  `reasons` explicando cada recomendação.
+- **`GET /recommendations`**: agrega dados já existentes (`list_tastings`+`list_collections`) +
+  lookups no KG — **zero mudança em `packages/knowledge` ou `services/orchestrator`**.
+
+**Decisão de escopo (registrada em `DATA_MODEL.md`):** o roadmap original previa
+`RequestKind.RECOMMEND` no Supervisor — não fiz isso. v1 é 100% determinístico; passar pela
+cascata violaria "não usar agente quando função determinística resolve" (mesmo raciocínio que já
+manteve `/nearby` fora do Supervisor na Fase 4). Também não esperei pelos `ANALYTICS_EVENT`s de
+view/search/save (ainda não existem, sem mobile emitindo) — usei sinal explícito já real em vez
+de esperar pelo implícito. Sem fallback de popularidade (precisaria de query cross-user nova) —
+usuário sem histórico recebe `[]`, honesto em vez de fabricado.
+
+**Testes/evals:** ruff ✓ · format ✓ · mypy ✓ (mesmos 2 erros pré-existentes intocados) ·
+**pytest 163 passed, 9 skipped** contra Postgres real (era 156 passed/16 skipped antes desta fase)
+· 7 evals PASS.
+
+**Validação real (Postgres vivo, OrbStack):** smoke HTTP — usuário sem histórico recebeu `[]`;
+após avaliar Cohiba Robustos com 5★, recebeu 10 recomendações (outros Cohiba/Cuba/medium-full),
+cada uma com `reasons` explícitas ("mesma marca: Cohiba", "mesmo país: Cuba", "mesma força:
+medium-full"), ranqueadas por score decrescente — comportamento correto ponta a ponta.
 
 ## Upgrade Fase 4 — Location Intelligence (✅ primeiro slice)
 **Contexto:** quarta fase do upgrade. O prompt mestre trata isso como feature de primeira classe:

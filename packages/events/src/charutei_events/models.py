@@ -24,6 +24,7 @@ class EventType(StrEnum):
     DEGUSTACAO_REGISTRADA = "degustacao.registrada"
     ESTABELECIMENTO_CADASTRADO = "estabelecimento.cadastrado"
     DISPONIBILIDADE_REPORTADA = "disponibilidade.reportada"
+    RECOMENDACAO_GERADA = "recomendacao.gerada"
 
 
 def _new_id() -> str:

@@ -83,15 +83,31 @@ precisa saber o vendor pra existir, só pra ligar o adaptador real depois.
 - Validado: pytest (153 passed contra Postgres real, era 146 sem Postgres) · 7 evals PASS · smoke
   HTTP ao vivo confirmando ranking por distância e exclusão de `unavailable`.
 
-## PHASE 5 — AI/RAG (separação de corpora)
-Separar Knowledge Base / Community Knowledge (User Data permanece fora do RAG, só SQL/KG). Community
-Knowledge só entra depois de ter volume real de experiências (depende da Phase 2/3 terem rodado em
-produção por um tempo).
+## PHASE 5 — AI/RAG (⏸ adiada, sem dado real ainda — não pulada silenciosamente)
+Revisada antes de planejar a Fase 6: sem trabalho real a fazer. Knowledge Base já existe e já
+está isolada; User Data já nunca entra no RAG (invariante já respeitada, não tarefa pendente);
+Community Knowledge explicitamente precisa de "volume real de experiências" que ainda não existe
+(só dado de teste). Ver `docs/DATA_MODEL.md` §Fase 5 para o detalhamento. Retomar quando houver
+uso real em produção — não antes.
 
-## PHASE 6 — Recommendation Engine
-`RequestKind.RECOMMEND` novo no Supervisor. Candidate generation por KG+histórico → ranking
-determinístico configurável → re-rank Sonnet opcional. Bloqueado por `ANALYTICS_EVENT`s de
-view/search/save (parte da Phase 2, mas o consumo desses eventos para recomendação é desta fase).
+## PHASE 6 — Recommendation Engine (✅ v1 concluída nesta sessão)
+- ✅ Novo pacote `packages/recommendation` (puro, sem I/O/LLM): candidate generation (catálogo
+  menos o que o usuário já tem/avaliou) → pontuação por afinidade de marca/país/força (de charutos
+  avaliados ≥4★ ou já possuídos) → ranking determinístico.
+- ✅ `GET /recommendations` — agrega `list_tastings`+`list_collections` (já existentes desde as
+  Fases 2/3) + lookups no KG, sem tocar `packages/knowledge` nem `services/orchestrator`.
+- **Desvio deliberado do texto original desta fase**: **não** criei `RequestKind.RECOMMEND` no
+  Supervisor — v1 é 100% determinístico, rotear pela cascata violaria "não usar agente quando
+  função determinística resolve" (mesmo raciocínio que manteve `/nearby` fora do Supervisor na
+  Fase 4). Também **não** ficou bloqueada pelos `ANALYTICS_EVENT`s de view/search/save (que
+  seguem não implementados, sem mobile emitindo) — usei sinal explícito já real (ratings,
+  collections) em vez de esperar pelo sinal implícito.
+- **Adiado, com motivo em `docs/DATA_MODEL.md`**: fallback de popularidade (precisa de query
+  cross-user nova em `OltpRepository`, hoje escopado por usuário) — usuário sem histórico recebe
+  `[]`, honesto em vez de fabricado. Re-rank por Sonnet/RAG — sem necessidade real hoje.
+- Validado: pytest (163 passed contra Postgres real, era 156 sem Postgres) · 7 evals PASS · smoke
+  HTTP ao vivo — usuário avaliou Cohiba Robustos 5★, recebeu outros Cohiba/Cuba/medium-full
+  ranqueados com `reasons` explícitas; usuário sem histórico recebeu `[]`.
 
 ## PHASE 7 — Community Intelligence
 Agente de interpretação de tendências/percepção — só depois de haver volume de experiências e eventos

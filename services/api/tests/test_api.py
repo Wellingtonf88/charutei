@@ -376,6 +376,54 @@ async def test_nearby_resolves_address_via_geocoding_provider(client_ctx) -> Non
     assert [x["establishment"]["id"] for x in r.json()] == [est["id"]]
 
 
+async def test_recommendations_empty_without_history(client_ctx) -> None:  # type: ignore[no-untyped-def]
+    """Fase 6, v1: sem sinal (nenhuma degustação/coleção), sem fallback de popularidade — lista
+    vazia é a resposta honesta, não fabricamos "popular agora" sem o dado que sustentaria isso."""
+    client, _ = client_ctx
+    r = await client.get("/recommendations", headers=_AUTH)
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+async def test_recommendations_suggests_same_brand_after_high_rating(client_ctx) -> None:  # type: ignore[no-untyped-def]
+    client, _ = client_ctx
+    await client.post(
+        "/tasting",
+        json={"cigar_id": "cigar:cohiba-robustos", "rating": 5},
+        headers=_AUTH,
+    )
+
+    r = await client.get("/recommendations", headers=_AUTH)
+    assert r.status_code == 200
+    results = r.json()
+    ids = [c["cigar_id"] for c in results]
+
+    assert "cigar:cohiba-robustos" not in ids  # já avaliado — excluído
+    assert "cigar:cohiba-siglo-vi" in ids  # mesma marca (Cohiba) — recomendado
+    match = next(c for c in results if c["cigar_id"] == "cigar:cohiba-siglo-vi")
+    assert any("Cohiba" in reason for reason in match["reasons"])
+
+
+async def test_recommendations_low_rating_gives_no_signal(client_ctx) -> None:  # type: ignore[no-untyped-def]
+    client, _ = client_ctx
+    await client.post(
+        "/tasting",
+        json={"cigar_id": "cigar:cohiba-robustos", "rating": 2},  # não gostou
+        headers=_AUTH,
+    )
+    r = await client.get("/recommendations", headers=_AUTH)
+    assert r.json() == []  # rating < 4 não vira sinal de afinidade
+
+
+async def test_recommendations_respects_limit(client_ctx) -> None:  # type: ignore[no-untyped-def]
+    client, _ = client_ctx
+    await client.post(
+        "/collection/items", json={"cigar_id": "cigar:cohiba-robustos"}, headers=_AUTH
+    )
+    r = await client.get("/recommendations?limit=1", headers=_AUTH)
+    assert len(r.json()) <= 1
+
+
 async def test_pump_events_materializes_catalog_embeddings(client_ctx) -> None:  # type: ignore[no-untyped-def]
     """Fase 1: o pipeline outbox→bus→worker estava desconectado (achado do audit) — a ingestão
     do catálogo no boot já enfileira `sku.detectado`; pump_events publica e materializa os

@@ -33,6 +33,7 @@ from charutei_knowledge import (
 )
 from charutei_location import NearbyResult, find_nearby
 from charutei_orchestrator import RequestKind
+from charutei_recommendation import CigarProfile, RecommendationCandidate, recommend
 from charutei_scoring import (
     compute_badges,
     compute_consumer_status,
@@ -298,6 +299,64 @@ def create_app(ctx: AppContext | None = None) -> FastAPI:
             consumer_status=consumer_status,
             badges=badges,
         )
+
+    @app.get("/recommendations")
+    async def recommendations(
+        user: AuthUser = Depends(current_user),
+        ctx: AppContext = Depends(get_ctx),
+        limit: int = Query(default=10, gt=0, le=50),
+    ) -> list[RecommendationCandidate]:
+        tastings = await ctx.oltp.list_tastings(user.id)
+        collections = await ctx.oltp.list_collections(user.id)
+        owned_ids = {item.cigar_id for col in collections for item in col.items}
+        tasted_ids = {t.cigar_id for t in tastings}
+        exclude_ids = owned_ids | tasted_ids
+
+        # Sinal: o que o usuário avaliou bem (>=4) ou já tem — sem isso, sem recomendação (v1
+        # não fabrica popularidade; ver docs/DATA_MODEL.md, Fase 6).
+        signal_ids = {t.cigar_id for t in tastings if t.rating >= 4} | owned_ids
+        liked_brands: set[str] = set()
+        liked_countries: set[str] = set()
+        liked_strengths: set[str] = set()
+        for cigar_id in signal_ids:
+            liked_brands.update(n.label for n in await ctx.kg.neighbors(cigar_id, rel="made_by"))
+            liked_countries.update(
+                n.label for n in await ctx.kg.neighbors(cigar_id, rel="from_country")
+            )
+            liked_strengths.update(
+                n.label for n in await ctx.kg.neighbors(cigar_id, rel="has_strength")
+            )
+
+        catalog: list[CigarProfile] = []
+        for c in await ctx.kg.nodes_by_type(NodeType.CIGAR):
+            brand_nodes = await ctx.kg.neighbors(c.id, rel="made_by")
+            country_nodes = await ctx.kg.neighbors(c.id, rel="from_country")
+            strength_nodes = await ctx.kg.neighbors(c.id, rel="has_strength")
+            catalog.append(
+                CigarProfile(
+                    cigar_id=c.id,
+                    label=c.label,
+                    brand=brand_nodes[0].label if brand_nodes else None,
+                    country=country_nodes[0].label if country_nodes else None,
+                    strength=strength_nodes[0].label if strength_nodes else None,
+                )
+            )
+
+        results = recommend(
+            catalog,
+            liked_brands=liked_brands,
+            liked_countries=liked_countries,
+            liked_strengths=liked_strengths,
+            exclude_cigar_ids=exclude_ids,
+            limit=limit,
+        )
+        await ctx.outbox.add(
+            Event(
+                type=EventType.RECOMENDACAO_GERADA,
+                payload={"user_id": user.id, "count": len(results)},
+            )
+        )
+        return results
 
     @app.post("/collections")
     async def create_collection(

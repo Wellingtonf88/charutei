@@ -17,6 +17,7 @@ dependencies = [
     "charutei-embedding-worker",
     "charutei-scoring",
     "charutei-location",
+    "charutei-recommendation",
 ]
 
 [project.optional-dependencies]
@@ -40,3 +41,4 @@ charutei-events = { workspace = true }
 charutei-embedding-worker = { workspace = true }
 charutei-scoring = { workspace = true }
 charutei-location = { workspace = true }
+charutei-recommendation = { workspace = true }

@@ -1,7 +1,8 @@
-# DATA_MODEL — Fases 2, 3 e 4 (Experience Engine + Consumer Identity + Location Intelligence)
+# DATA_MODEL — Fases 2, 3, 4 e 6 (Experience + Consumer Identity + Location + Recommendation)
 
-Schema exato após as Fases 2, 3 e 4 do upgrade (ver `docs/IMPLEMENTATION_ROADMAP.md`). Complementa
-o inventário do `docs/PROJECT_UPGRADE_AUDIT.md` §4 com o que mudou em cada fase.
+Schema exato após as Fases 2, 3, 4 e 6 do upgrade (ver `docs/IMPLEMENTATION_ROADMAP.md`; a Fase 5
+foi adiada — ver seção própria abaixo). Complementa o inventário do `docs/PROJECT_UPGRADE_AUDIT.md`
+§4 com o que mudou em cada fase.
 
 ## Fase 2 (Experience Engine)
 
@@ -169,3 +170,39 @@ Novos `EventType`: `estabelecimento.cadastrado`, `disponibilidade.reportada`.
 - **Mobile**: precisaria de `expo-location` + fluxo de permissão nativa, inverificável sem
   simulador/device nesta sessão (mesmo motivo da auth Supabase real na Fase 1). Backend completo e
   testado agora; tela de mapa é o próximo passo natural.
+
+## Fase 5 (AI/RAG — adiada, não pulada silenciosamente)
+
+Revisada antes de planejar: **sem trabalho real a fazer agora**. Knowledge Base já existe e já
+está isolada (`data/docs/cigar_docs.json`); User Data já nunca entra no RAG (fica em SQL/KG via o
+resolver determinístico do Assistant — invariante já respeitada, não uma tarefa pendente);
+Community Knowledge só entra "depois de ter volume real de experiências" (texto do próprio
+roadmap) — hoje o volume é zero (só dado de teste). Construir a separação de corpora agora seria
+RAG sobre dado fabricado. Retomar quando houver uso real em produção.
+
+## Fase 6 (Recommendation Engine v1)
+
+**Sem migration, sem mudança em `packages/knowledge`.** Novo pacote `packages/recommendation`
+(puro, sem I/O/LLM): `recommend(catalog, liked_brands, liked_countries, liked_strengths,
+exclude_cigar_ids, limit)` — candidate generation (catálogo inteiro menos o que o usuário já
+tem/avaliou) → pontuação por afinidade (+2 mesma marca, +1 mesmo país, +1 mesma força, de charutos
+avaliados ≥4 estrelas ou já possuídos) → corta score 0 → ordena `(score desc, label)` → corta em
+`limit`.
+
+**`GET /recommendations`** (autenticado — usa o histórico do próprio usuário): agrega
+`list_tastings`+`list_collections` (ambos já existentes desde as Fases 2/3) + lookups no KG
+(`made_by`/`from_country`/`has_strength`, mesmo padrão de `/catalog` e `/profile`). Emite
+`EventType.RECOMENDACAO_GERADA`.
+
+**Decisão de escopo — por que isso NÃO passa pelo Supervisor/cascata**: v1 é 100% determinístico,
+sem nenhuma chamada a LLM. Rotear por `RequestKind.RECOMMEND` (como o roadmap original sugeria)
+violaria a regra de ouro do projeto — "não usar agente quando função determinística resolve"
+(prompt mestre §31). Mesmo raciocínio que já manteve `/nearby` (Fase 4) fora do Supervisor. Se/
+quando a lista de candidatos ficar rala ou ambígua, um re-rank por Sonnet+RAG é o próximo passo
+natural (mesma filosofia da cascata do Assistant) — não construído agora, sem necessidade real.
+
+**Sem fallback de popularidade**: exigiria uma query nova agregando dados de **todos** os usuários
+— hoje `list_tastings`/`list_collections` são escopados por `user_id` (não existe "todas as
+degustações do sistema"). Usuário sem histórico recebe `[]` — honesto, não fabrica "popular agora"
+sem o dado que sustentaria isso. Caminho claro pra v2 quando fizer sentido (uma query cross-user
+nova em `OltpRepository`).
