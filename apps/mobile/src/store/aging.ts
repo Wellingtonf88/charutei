@@ -23,7 +23,10 @@ export async function scheduleRestReminder(cigarId: string): Promise<void> {
         title: "Seu charuto descansou 🥃",
         body: `${cigarLabel(cigarId)} completou ${REST_DAYS} dias de descanso — pronto para apreciar.`,
       },
-      trigger: { seconds: REST_DAYS * 86_400 },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: REST_DAYS * 86_400,
+      },
     });
   } catch {
     // notificações indisponíveis — aging segue exibido a partir do servidor.
